@@ -46,15 +46,15 @@ intro :: P.Doc
 intro =
   P.vcat
     [ P.fillSep
-        ["Hi,","thank","you","for","trying","out"
-        ,P.green "Elm"
+        ["Hi,","welcome","to"
+        ,P.green "lynxjs-elm"
         ,P.green (P.text (V.toChars V.compiler)) <> "."
-        ,"I hope you like it!"
+        ,"Elm","targeting","LynxJS","native","rendering."
         ]
     , ""
     , P.black "-------------------------------------------------------------------------------"
-    , P.black "I highly recommend working through <https://guide.elm-lang.org> to get started."
-    , P.black "It teaches many important concepts, including how to use `elm` in the terminal."
+    , P.black "This is a fork of the Elm compiler that outputs LynxJS element trees"
+    , P.black "instead of browser DOM. See <https://guide.elm-lang.org> for Elm basics."
     , P.black "-------------------------------------------------------------------------------"
     ]
 

@@ -1,13 +1,13 @@
 
-Name: elm
+Name: lynxjs-elm
 Version: 0.19.1
 
 Synopsis:
-    The `elm` command line interface.
+    The `lynxjs-elm` command line interface.
 
 Description:
-    This includes commands like `elm make`, `elm repl`, and many others
-    for helping make Elm developers happy and productive.
+    Elm compiler targeting LynxJS native rendering instead of browser DOM.
+    Fork of the Elm compiler with modified code generation for LynxJS PAPIs.
 
 Homepage: https://elm-lang.org
 
@@ -34,7 +34,7 @@ Flag dev {
 }
 
 
-Executable elm
+Executable lynxjs-elm
         ghc-options: -O2 -rtsopts -threaded "-with-rtsopts=-N -qg -A128m" -Wall -Werror
         -- add -eventlog for (elm make src/Main.elm +RTS -l; threadscope elm.eventlog)
         -- https://www.oreilly.com/library/view/parallel-and-concurrent/9781449335939/
@@ -197,7 +197,7 @@ Executable elm
         Type.Type
         Type.Unify
         Type.UnionFind
-        Paths_elm
+        Paths_lynxjs_elm
 
     Build-depends:
         ansi-terminal,

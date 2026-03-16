@@ -94,7 +94,7 @@ runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs) =
 
                     [name] ->
                       do  builder <- toBuilder root details desiredMode artifacts
-                          generate style "index.html" (Html.sandwich name builder) (NE.List name [])
+                          generate style "elm.js" (Html.sandwich name builder) (NE.List name [])
 
                     name:names ->
                       do  builder <- toBuilder root details desiredMode artifacts
