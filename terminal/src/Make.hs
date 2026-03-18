@@ -16,10 +16,14 @@ import qualified Data.Maybe as Maybe
 import qualified Data.NonEmptyList as NE
 import qualified System.Directory as Dir
 import qualified System.FilePath as FP
+import System.FilePath ((</>))
+import qualified System.Exit as SysExit
+import qualified System.Process as Process
 
 import qualified AST.Optimized as Opt
 import qualified BackgroundWriter as BW
 import qualified Build
+import qualified Data.Name as Name
 import qualified Elm.Details as Details
 import qualified Elm.ModuleName as ModuleName
 import qualified File
@@ -49,6 +53,7 @@ data Flags =
 data Output
   = JS FilePath
   | Html FilePath
+  | Bundle FilePath
   | DevNull
 
 
@@ -116,6 +121,12 @@ runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs) =
                   do  name <- hasOneMain artifacts
                       builder <- toBuilder root details desiredMode artifacts
                       generate style target (Html.sandwich name builder) (NE.List name [])
+
+                Just (Bundle target) ->
+                  do  name <- hasOneMain artifacts
+                      builder <- toBuilder root details desiredMode artifacts
+                      let js = builder <> "\nvar app = Elm." <> Name.toBuilder name <> ".init({});\n"
+                      Task.io $ bundle style target js name
 
 
 
@@ -286,16 +297,17 @@ output =
     , _plural = "output files"
     , _parser = parseOutput
     , _suggest = \_ -> return []
-    , _examples = \_ -> return [ "elm.js", "index.html", "/dev/null" ]
+    , _examples = \_ -> return [ "elm.js", "index.html", "main.lynx.bundle", "/dev/null" ]
     }
 
 
 parseOutput :: String -> Maybe Output
 parseOutput name
-  | isDevNull name      = Just DevNull
-  | hasExt ".html" name = Just (Html name)
-  | hasExt ".js"   name = Just (JS name)
-  | otherwise           = Nothing
+  | isDevNull name              = Just DevNull
+  | hasSuffix ".lynx.bundle" name = Just (Bundle name)
+  | hasExt ".html" name         = Just (Html name)
+  | hasExt ".js"   name         = Just (JS name)
+  | otherwise                   = Nothing
 
 
 docsFile :: Parser FilePath
@@ -314,6 +326,96 @@ hasExt ext path =
   FP.takeExtension path == ext && length path > length ext
 
 
+hasSuffix :: String -> String -> Bool
+hasSuffix suffix path =
+  drop (length path - length suffix) path == suffix && length path > length suffix
+
+
 isDevNull :: String -> Bool
 isDevNull name =
   name == "/dev/null" || name == "NUL" || name == "$null"
+
+
+
+-- BUNDLE
+
+
+bundle :: Reporting.Style -> FilePath -> B.Builder -> Name.Name -> IO ()
+bundle style target js name =
+  do  home <- Stuff.getElmHome
+      let bundlerDir = home </> "bundler"
+      let srcDir = bundlerDir </> "src"
+      let entryFile = srcDir </> "index.js"
+      let nodeModules = bundlerDir </> "node_modules"
+
+      -- Set up bundler project (first time)
+      Dir.createDirectoryIfMissing True srcDir
+      setupBundlerProject bundlerDir
+
+      -- Write generated JS as entry point
+      File.writeBuilder entryFile js
+
+      -- Install deps if needed
+      hasNodeModules <- Dir.doesDirectoryExist nodeModules
+      if hasNodeModules
+        then return ()
+        else
+          do  putStrLn "Installing bundler dependencies (first time)..."
+              callIn bundlerDir "npm" ["install"]
+
+      -- Run rspeedy build
+      putStrLn "Bundling..."
+      callIn bundlerDir "bun" ["run", "rspeedy", "build", "--config", "lynx.config.mjs"]
+
+      -- Find and copy the output bundle
+      let distBundle = bundlerDir </> "dist" </> "main.lynx.bundle"
+      Dir.createDirectoryIfMissing True (FP.takeDirectory target)
+      Dir.copyFile distBundle target
+      Reporting.reportGenerate style (NE.List name []) target
+
+
+setupBundlerProject :: FilePath -> IO ()
+setupBundlerProject dir =
+  do  let pkgFile = dir </> "package.json"
+      let cfgFile = dir </> "lynx.config.mjs"
+      hasPkg <- Dir.doesFileExist pkgFile
+      if hasPkg then return () else writeFile pkgFile packageJson
+      writeFile cfgFile rspeedyConfig
+
+
+callIn :: FilePath -> String -> [String] -> IO ()
+callIn dir cmd args =
+  do  let proc = (Process.proc cmd args) { Process.cwd = Just dir }
+      (_, _, _, ph) <- Process.createProcess proc
+      exitCode <- Process.waitForProcess ph
+      case exitCode of
+        SysExit.ExitSuccess -> return ()
+        SysExit.ExitFailure code ->
+          error $ cmd ++ " failed with exit code " ++ show code
+
+
+packageJson :: String
+packageJson = unlines
+  [ "{"
+  , "  \"name\": \"lynxjs-elm-bundler\","
+  , "  \"private\": true,"
+  , "  \"devDependencies\": {"
+  , "    \"@lynx-js/rspeedy\": \"latest\","
+  , "    \"@lynx-js/react-rsbuild-plugin\": \"latest\""
+  , "  }"
+  , "}"
+  ]
+
+
+rspeedyConfig :: String
+rspeedyConfig = unlines
+  [ "import { defineConfig } from '@lynx-js/rspeedy';"
+  , "import { pluginReactLynx } from '@lynx-js/react-rsbuild-plugin';"
+  , ""
+  , "export default defineConfig({"
+  , "  source: {"
+  , "    entry: './src/index.js',"
+  , "  },"
+  , "  plugins: [pluginReactLynx()],"
+  , "});"
+  ]

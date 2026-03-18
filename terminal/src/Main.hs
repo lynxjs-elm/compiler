@@ -15,6 +15,7 @@ import Terminal
 import Terminal.Helpers
 
 import qualified Bump
+import qualified Dev
 import qualified Develop
 import qualified Diff
 import qualified Init
@@ -34,6 +35,7 @@ main =
     [ repl
     , init
     , reactor
+    , dev
     , make
     , install
     , bump
@@ -165,6 +167,33 @@ port_ =
     , _suggest = \_ -> return []
     , _examples = \_ -> return ["3000","8000"]
     }
+
+
+
+-- DEV
+
+
+dev :: Terminal.Command
+dev =
+  let
+    summary =
+      "Start a LynxJS dev server with live reloading. It compiles your Elm code,\
+      \ bundles it with Rspeedy, and watches for changes."
+
+    details =
+      "The `dev` command starts an Rspeedy dev server for LynxJS:"
+
+    example =
+      reflow
+        "After running that command, you will see a URL and QR code that you can\
+        \ use to open the app in LynxJS Explorer. When you save an Elm file, it\
+        \ recompiles and the app updates automatically."
+
+    devFlags =
+      flags Dev.Flags
+        |-- flag "port" port_ "The port of the dev server (default: 3000)"
+  in
+  Terminal.Command "dev" (Common summary) details example (required elmFile) devFlags Dev.run
 
 
 

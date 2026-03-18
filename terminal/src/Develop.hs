@@ -11,8 +11,11 @@ import Control.Monad (guard)
 import Control.Monad.Trans (MonadIO(liftIO))
 import qualified Data.ByteString.Builder as B
 import qualified Data.ByteString as BS
+import qualified Data.ByteString.Char8 as BSC
 import qualified Data.HashMap.Strict as HashMap
+import qualified Data.List as List
 import qualified Data.NonEmptyList as NE
+import qualified Data.Time.Clock.POSIX as Time
 import qualified System.Directory as Dir
 import System.FilePath as FP
 import Snap.Core hiding (path)
@@ -51,6 +54,7 @@ run () (Flags maybePort) =
         serveFiles
         <|> serveDirectoryWith directoryConfig "."
         <|> serveAssets
+        <|> serveWatch
         <|> error404
 
 
@@ -161,7 +165,7 @@ compile path =
                 artifacts <- Task.eio Exit.ReactorBadBuild $ Build.fromPaths Reporting.silent root details (NE.List path [])
                 javascript <- Task.mapError Exit.ReactorBadGenerate $ Generate.dev root details artifacts
                 let (NE.List name _) = Build.getRootNames artifacts
-                return $ Html.sandwich name javascript
+                return $ Html.sandwichReactor name javascript
 
 
 
@@ -178,6 +182,49 @@ serveAssets =
         Just (content, mimeType) ->
           do  modifyResponse (setContentType (mimeType <> ";charset=utf-8"))
               writeBS content
+
+
+
+-- WATCH ENDPOINT
+
+
+serveWatch :: Snap ()
+serveWatch =
+  do  rqPath <- BSC.unpack . rqPathInfo <$> getRequest
+      guard (rqPath == "_elm/watch")
+      mtime <- liftIO getMaxMtime
+      modifyResponse (setContentType "text/plain")
+      writeBS (BSC.pack (show mtime))
+
+
+getMaxMtime :: IO Double
+getMaxMtime =
+  do  files <- findElmFiles "."
+      case files of
+        [] -> return 0
+        _  ->
+          do  times <- mapM Dir.getModificationTime files
+              return $ maximum $ map (realToFrac . Time.utcTimeToPOSIXSeconds) times
+
+
+findElmFiles :: FilePath -> IO [FilePath]
+findElmFiles root =
+  do  entries <- Dir.listDirectory root
+      let paths = map (root </>) entries
+      files <- mapM classify paths
+      return (concat files)
+  where
+    classify path =
+      do  isDir <- Dir.doesDirectoryExist path
+          case (isDir, isHidden path) of
+            (True, False) -> findElmFiles path
+            (True, True)  -> return []
+            _             -> return [path | takeExtension path == ".elm"]
+
+    isHidden p =
+      case takeFileName p of
+        '.':_ -> True
+        _     -> List.isPrefixOf "elm-stuff" (takeFileName p)
 
 
 
