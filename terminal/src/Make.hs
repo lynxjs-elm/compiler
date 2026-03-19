@@ -97,13 +97,10 @@ runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs) =
                     [] ->
                       return ()
 
-                    [name] ->
-                      do  builder <- toBuilder root details desiredMode artifacts
-                          generate style "elm.js" (Html.sandwich name builder) (NE.List name [])
-
-                    name:names ->
-                      do  builder <- toBuilder root details desiredMode artifacts
-                          generate style "elm.js" builder (NE.List name names)
+                    _ ->
+                      do  _name <- hasOneMain artifacts
+                          builder <- toBuilder root details desiredMode artifacts
+                          Task.io $ bundle style "main.lynx.bundle" builder (Build.getRootNames artifacts)
 
                 Just DevNull ->
                   return ()
