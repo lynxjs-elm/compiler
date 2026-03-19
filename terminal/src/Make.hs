@@ -11,6 +11,7 @@ module Make
   where
 
 
+import Control.Monad (when)
 import qualified Data.ByteString.Builder as B
 import qualified Data.Maybe as Maybe
 import qualified Data.NonEmptyList as NE
@@ -23,7 +24,6 @@ import qualified System.Process as Process
 import qualified AST.Optimized as Opt
 import qualified BackgroundWriter as BW
 import qualified Build
-import qualified Data.Name as Name
 import qualified Elm.Details as Details
 import qualified Elm.ModuleName as ModuleName
 import qualified File
@@ -123,10 +123,9 @@ runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs) =
                       generate style target (Html.sandwich name builder) (NE.List name [])
 
                 Just (Bundle target) ->
-                  do  name <- hasOneMain artifacts
+                  do  _name <- hasOneMain artifacts
                       builder <- toBuilder root details desiredMode artifacts
-                      let js = builder <> "\nvar app = Elm." <> Name.toBuilder name <> ".init({});\n"
-                      Task.io $ bundle style target js name
+                      Task.io $ bundle style target builder (Build.getRootNames artifacts)
 
 
 
@@ -340,47 +339,59 @@ isDevNull name =
 -- BUNDLE
 
 
-bundle :: Reporting.Style -> FilePath -> B.Builder -> Name.Name -> IO ()
-bundle style target js name =
+bundle :: Reporting.Style -> FilePath -> B.Builder -> NE.List ModuleName.Raw -> IO ()
+bundle style target js names =
   do  home <- Stuff.getElmHome
       let bundlerDir = home </> "bundler"
       let srcDir = bundlerDir </> "src"
-      let entryFile = srcDir </> "index.js"
+      let elmFile = srcDir </> "elm.js"
       let nodeModules = bundlerDir </> "node_modules"
 
-      -- Set up bundler project (first time)
+      -- Set up bundler project
       Dir.createDirectoryIfMissing True srcDir
       setupBundlerProject bundlerDir
 
-      -- Write generated JS as entry point
-      File.writeBuilder entryFile js
+      -- Write compiled Elm JS
+      File.writeBuilder elmFile js
 
       -- Install deps if needed
-      hasNodeModules <- Dir.doesDirectoryExist nodeModules
-      if hasNodeModules
-        then return ()
-        else
-          do  putStrLn "Installing bundler dependencies (first time)..."
-              callIn bundlerDir "npm" ["install"]
+      let rspackDir = nodeModules </> "@rspack" </> "cli"
+      hasCorrectDeps <- Dir.doesDirectoryExist rspackDir
+      when (not hasCorrectDeps) $
+        do  putStrLn "Installing bundler dependencies..."
+            callIn bundlerDir "npm" ["install"]
 
-      -- Run rspeedy build
+      -- Assemble all.js and build bundle
       putStrLn "Bundling..."
-      callIn bundlerDir "bun" ["run", "rspeedy", "build", "--config", "lynx.config.mjs"]
+      assembleAndBuild bundlerDir
 
-      -- Find and copy the output bundle
+      -- Copy the output bundle
       let distBundle = bundlerDir </> "dist" </> "main.lynx.bundle"
       Dir.createDirectoryIfMissing True (FP.takeDirectory target)
       Dir.copyFile distBundle target
-      Reporting.reportGenerate style (NE.List name []) target
+      Reporting.reportGenerate style names target
+
+
+assembleAndBuild :: FilePath -> IO ()
+assembleAndBuild bundlerDir =
+  do  let srcDir = bundlerDir </> "src"
+      stubs <- readFile (srcDir </> "stubs.js")
+      elm <- readFile (srcDir </> "elm.js")
+      initCode <- readFile (srcDir </> "init.js")
+      writeFile (srcDir </> "all.js") (stubs ++ elm ++ initCode)
+      callIn bundlerDir "npx" ["rspack", "build"]
 
 
 setupBundlerProject :: FilePath -> IO ()
 setupBundlerProject dir =
   do  let pkgFile = dir </> "package.json"
-      let cfgFile = dir </> "lynx.config.mjs"
-      hasPkg <- Dir.doesFileExist pkgFile
-      if hasPkg then return () else writeFile pkgFile packageJson
-      writeFile cfgFile rspeedyConfig
+      let cfgFile = dir </> "rspack.config.js"
+      let stubsFile = dir </> "src" </> "stubs.js"
+      let initFile = dir </> "src" </> "init.js"
+      writeFile pkgFile packageJson
+      writeFile cfgFile rspackConfig
+      writeFile stubsFile stubsJs
+      writeFile initFile initJs
 
 
 callIn :: FilePath -> String -> [String] -> IO ()
@@ -399,23 +410,66 @@ packageJson = unlines
   [ "{"
   , "  \"name\": \"lynxjs-elm-bundler\","
   , "  \"private\": true,"
-  , "  \"devDependencies\": {"
-  , "    \"@lynx-js/rspeedy\": \"latest\","
-  , "    \"@lynx-js/react-rsbuild-plugin\": \"latest\""
+  , "  \"type\": \"module\","
+  , "  \"dependencies\": {"
+  , "    \"@lynx-js/template-webpack-plugin\": \"0.6.4\","
+  , "    \"@rspack/cli\": \"^1.7.0\","
+  , "    \"@rspack/core\": \"^1.7.0\""
   , "  }"
   , "}"
   ]
 
 
-rspeedyConfig :: String
-rspeedyConfig = unlines
-  [ "import { defineConfig } from '@lynx-js/rspeedy';"
-  , "import { pluginReactLynx } from '@lynx-js/react-rsbuild-plugin';"
+rspackConfig :: String
+rspackConfig = unlines
+  [ "import { LynxEncodePlugin, LynxTemplatePlugin } from '@lynx-js/template-webpack-plugin';"
+  , "import { defineConfig } from '@rspack/cli';"
   , ""
   , "export default defineConfig({"
-  , "  source: {"
-  , "    entry: './src/index.js',"
-  , "  },"
-  , "  plugins: [pluginReactLynx()],"
+  , "  entry: { main: './src/all.js' },"
+  , "  plugins: ["
+  , "    new LynxEncodePlugin(),"
+  , "    new LynxTemplatePlugin({ filename: 'main.lynx.bundle', intermediate: 'main' }),"
+  , "    (compiler) => {"
+  , "      compiler.hooks.thisCompilation.tap('MarkMainThread', (compilation) => {"
+  , "        compilation.hooks.processAssets.tap('MarkMainThread', () => {"
+  , "          const asset = compilation.getAsset('main.js');"
+  , "          compilation.updateAsset(asset.name, asset.source, { ...asset.info, 'lynx:main-thread': true });"
+  , "        });"
+  , "      });"
+  , "    },"
+  , "  ]"
   , "});"
+  ]
+
+
+stubsJs :: String
+stubsJs = unlines
+  [ "globalThis['requestAnimationFrame'] = lynx['requestAnimationFrame'];"
+  , "globalThis['cancelAnimationFrame'] = lynx['cancelAnimationFrame'];"
+  , "globalThis['runWorklet'] = function(worklet, params) { return worklet(params); };"
+  , "globalThis['native'] = {};"
+  , "globalThis['processData'] = function() {};"
+  , "globalThis['updatePage'] = function() {};"
+  , "globalThis['updateGlobalProps'] = function() {};"
+  ]
+
+
+initJs :: String
+initJs = unlines
+  [ "globalThis['renderPage'] = function() {"
+  , "  var page = __CreatePage('0', 0);"
+  , "  var pageId = __GetElementUniqueID(page);"
+  , "  globalThis['native']['currentPageId'] = pageId;"
+  , "  globalThis['page'] = page;"
+  , "  var mods = globalThis.Elm;"
+  , "  if (mods) {"
+  , "    for (var k in mods) {"
+  , "      if (mods[k] && mods[k].init) {"
+  , "        mods[k].init({});"
+  , "        break;"
+  , "      }"
+  , "    }"
+  , "  }"
+  , "};"
   ]
