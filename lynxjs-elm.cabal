@@ -78,6 +78,7 @@ Executable lynxjs-elm
         -- from builder/
         Build
         BackgroundWriter
+        Lynx.Patches
         Deps.Bump
         Deps.Diff
         Deps.Registry

@@ -39,6 +39,7 @@ import qualified Compile
 import qualified Deps.Registry as Registry
 import qualified Deps.Solver as Solver
 import qualified Deps.Website as Website
+import qualified Lynx.Patches as Lynx
 import qualified Elm.Constraint as Con
 import qualified Elm.Docs as Docs
 import qualified Elm.Interface as I
@@ -380,19 +381,26 @@ type Dep =
 verifyDep :: Env -> MVar (Map.Map Pkg.Name (MVar Dep)) -> Map.Map Pkg.Name Solver.Details -> Pkg.Name -> Solver.Details -> IO Dep
 verifyDep (Env key _ _ cache manager _ _) depsMVar solution pkg details@(Solver.Details vsn directDeps) =
   do  let fingerprint = Map.intersectionWith (\(Solver.Details v _) _ -> v) solution directDeps
+      -- For forked packages (virtual-dom, browser, http), install from
+      -- embedded content instead of downloading from package.elm-lang.org.
+      forkChanged <- Lynx.installFork cache pkg vsn
       exists <- Dir.doesDirectoryExist (Stuff.package cache pkg vsn </> "src")
       if exists
         then
           do  Reporting.report key Reporting.DCached
-              maybeCache <- File.readBinary (Stuff.package cache pkg vsn </> "artifacts.dat")
-              case maybeCache of
-                Nothing ->
+              if forkChanged
+                then
                   build key cache depsMVar pkg details fingerprint Set.empty
+                else
+                  do  maybeCache <- File.readBinary (Stuff.package cache pkg vsn </> "artifacts.dat")
+                      case maybeCache of
+                        Nothing ->
+                          build key cache depsMVar pkg details fingerprint Set.empty
 
-                Just (ArtifactCache fingerprints artifacts) ->
-                  if Set.member fingerprint fingerprints
-                    then Reporting.report key Reporting.DBuilt >> return (Right artifacts)
-                    else build key cache depsMVar pkg details fingerprint fingerprints
+                        Just (ArtifactCache fingerprints artifacts) ->
+                          if Set.member fingerprint fingerprints
+                            then Reporting.report key Reporting.DBuilt >> return (Right artifacts)
+                            else build key cache depsMVar pkg details fingerprint fingerprints
         else
           do  Reporting.report key Reporting.DRequested
               result <- downloadPackage cache manager pkg vsn
