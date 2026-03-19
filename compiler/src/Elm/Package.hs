@@ -14,6 +14,7 @@ module Elm.Package
   , browser, virtualDom, html
   , json, http, url
   , webgl, linearAlgebra
+  , ui
   --
   , suggestions
   , nearbyNames
@@ -80,7 +81,7 @@ data Canonical =
 
 isKernel :: Name -> Bool
 isKernel (Name author _) =
-  author == elm || author == elm_explorations
+  author == elm || author == elm_explorations || author == lynxjs_elm
 
 
 toChars :: Name -> String
@@ -133,13 +134,13 @@ core =
 {-# NOINLINE browser #-}
 browser :: Name
 browser =
-  toName elm "browser"
+  toName lynxjs_elm "browser"
 
 
 {-# NOINLINE virtualDom #-}
 virtualDom :: Name
 virtualDom =
-  toName elm "virtual-dom"
+  toName lynxjs_elm "virtual-dom"
 
 
 {-# NOINLINE html #-}
@@ -157,7 +158,7 @@ json =
 {-# NOINLINE http #-}
 http :: Name
 http =
-  toName elm "http"
+  toName lynxjs_elm "http"
 
 
 {-# NOINLINE url #-}
@@ -190,6 +191,18 @@ elm_explorations =
   Utf8.fromChars "elm-explorations"
 
 
+{-# NOINLINE lynxjs_elm #-}
+lynxjs_elm :: Author
+lynxjs_elm =
+  Utf8.fromChars "lynxjs-elm"
+
+
+{-# NOINLINE ui #-}
+ui :: Name
+ui =
+  toName lynxjs_elm "ui"
+
+
 
 -- PACKAGE SUGGESTIONS
 
@@ -216,6 +229,9 @@ suggestions =
     , "Time" ==> time
     , "Url.Parser" ==> url
     , "Url" ==> url
+    , "Lynx" ==> ui
+    , "Lynx.Attributes" ==> ui
+    , "Lynx.Events" ==> ui
     ]
 
 

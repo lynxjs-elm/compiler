@@ -1,27 +1,30 @@
 {-# LANGUAGE TemplateHaskell #-}
 module Lynx.Patches
   ( installFork
+  , installAllForks
   , isFork
+  , injectRegistry
   )
   where
 
 
 import qualified Data.ByteString as BS
 import Data.FileEmbed (embedDir, embedFile)
+import qualified Data.Map as Map
 import qualified System.Directory as Dir
 import System.FilePath ((</>), takeDirectory)
 
+import qualified Deps.Registry as Registry
 import qualified Elm.Package as Pkg
 import qualified Elm.Version as V
 import qualified Stuff
 
 
 
--- EMBEDDED FORK CONTENT
+-- EMBEDDED PACKAGE CONTENT
 --
--- Complete source trees from our forked packages, baked into the
--- compiler binary at compile time. These replace the stock Elm
--- packages with LynxJS-compatible versions.
+-- Complete source trees from our forked/custom packages, baked into
+-- the compiler binary at compile time.
 
 
 virtualDomSrc :: [(FilePath, BS.ByteString)]
@@ -45,19 +48,42 @@ httpElmJson :: BS.ByteString
 httpElmJson = $(embedFile "packages/http/elm.json")
 
 
+uiSrc :: [(FilePath, BS.ByteString)]
+uiSrc = $(embedDir "packages/ui/src")
+
+uiElmJson :: BS.ByteString
+uiElmJson = $(embedFile "packages/ui/elm.json")
+
+
 
 -- IS FORK
 
 
 isFork :: Pkg.Name -> Bool
 isFork pkg =
-  pkg == Pkg.virtualDom || pkg == Pkg.browser || pkg == Pkg.http
+  pkg == Pkg.virtualDom || pkg == Pkg.browser || pkg == Pkg.http || pkg == Pkg.ui
+
+
+
+-- INSTALL ALL FORKS
+--
+-- Pre-install all embedded packages so their elm.json is available
+-- for the dependency solver before it tries to fetch from the network.
+
+
+installAllForks :: Stuff.PackageCache -> IO ()
+installAllForks cache =
+  do  _ <- installFork cache Pkg.virtualDom (V.Version 1 0 0)
+      _ <- installFork cache Pkg.browser    (V.Version 1 0 0)
+      _ <- installFork cache Pkg.http       (V.Version 1 0 0)
+      _ <- installFork cache Pkg.ui         (V.Version 1 0 0)
+      return ()
 
 
 
 -- INSTALL FORK
 --
--- Write the complete forked package to the cache directory.
+-- Write the complete package to the cache directory.
 -- Returns True if any file was written (new install or content changed).
 
 
@@ -80,7 +106,32 @@ getForkContent pkg
   | pkg == Pkg.virtualDom = Just (virtualDomElmJson, virtualDomSrc)
   | pkg == Pkg.browser    = Just (browserElmJson, browserSrc)
   | pkg == Pkg.http       = Just (httpElmJson, httpSrc)
+  | pkg == Pkg.ui         = Just (uiElmJson, uiSrc)
   | otherwise             = Nothing
+
+
+
+-- INJECT REGISTRY
+--
+-- Add our custom packages (lynx/ui) to the package registry so the
+-- dependency solver can resolve them. Forked packages (virtual-dom,
+-- browser, http) are already in the upstream registry.
+
+
+injectRegistry :: Registry.Registry -> Registry.Registry
+injectRegistry (Registry.Registry count versions) =
+  let
+    newPkgs =
+      [ (Pkg.virtualDom, Registry.KnownVersions (V.Version 1 0 0) [])
+      , (Pkg.browser,    Registry.KnownVersions (V.Version 1 0 0) [])
+      , (Pkg.http,       Registry.KnownVersions (V.Version 1 0 0) [])
+      , (Pkg.ui,         Registry.KnownVersions (V.Version 1 0 0) [])
+      ]
+    additions = filter (\(k, _) -> not (Map.member k versions)) newPkgs
+    newVersions = foldr (\(k, v) m -> Map.insert k v m) versions additions
+    newCount = count + length additions
+  in
+  Registry.Registry newCount newVersions
 
 
 

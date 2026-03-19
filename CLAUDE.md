@@ -29,17 +29,17 @@ The compiler automatically installs forked packages (virtual-dom, browser, http)
 compiler/src/     # Core compiler: parser, type checker, code gen, AST
 builder/src/      # Build system, package management, dependency resolution
 terminal/src/     # CLI commands: Make.hs, Dev.hs, Init.hs, Install.hs, etc.
-packages/         # Forked Elm packages embedded into the compiler binary
+packages/         # Elm packages embedded into the compiler binary
   virtual-dom/    # LynxJS PAPI kernel (replaces DOM calls)
   browser/        # LynxJS page/flush lifecycle (replaces document.body)
   http/           # fetch-based kernel (replaces XMLHttpRequest)
+  ui/             # lynx/ui — LynxJS native element helpers (Lynx, Lynx.Attributes, Lynx.Events)
 examples/         # Demo apps (counter, hello-world, http-example)
-ui/               # lynx/ui Elm package for LynxJS elements
 ```
 
 ## Forked packages
 
-`packages/` contains forked elm/virtual-dom, elm/browser, and elm/http. Their source is embedded into the compiler binary at build time via `file-embed` in `builder/src/Lynx/Patches.hs`. When a project depends on these packages, the compiler installs them from embedded content instead of downloading from package.elm-lang.org.
+`packages/` contains forked elm/virtual-dom, elm/browser, elm/http, and the custom lynx/ui package. Upstream repos are at `github.com/lynxjs-elm/{virtual-dom,browser,http,ui}`. Their source is embedded into the compiler binary at build time via `file-embed` in `builder/src/Lynx/Patches.hs`. When a project depends on these packages, the compiler installs them from embedded content instead of downloading from package.elm-lang.org. The `lynx/ui` package is also injected into the package registry so the dependency solver can resolve it.
 
 After editing a fork, rebuild the compiler (`stack build && stack install`) and clear `~/.lynxjs-elm` to pick up changes.
 

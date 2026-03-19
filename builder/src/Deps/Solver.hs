@@ -32,6 +32,7 @@ import qualified Elm.Version as V
 import qualified File
 import qualified Http
 import qualified Json.Decode as D
+import qualified Lynx.Patches as Lynx
 import qualified Reporting.Exit as Exit
 import qualified Stuff
 
@@ -354,6 +355,7 @@ initEnv =
   do  mvar  <- newEmptyMVar
       _     <- forkIO $ putMVar mvar =<< Http.getManager
       cache <- Stuff.getPackageCache
+      Lynx.installAllForks cache
       Stuff.withRegistryLock cache $
         do  maybeRegistry <- Registry.read cache
             manager       <- readMVar mvar
@@ -363,7 +365,7 @@ initEnv =
                 do  eitherRegistry <- Registry.fetch manager cache
                     case eitherRegistry of
                       Right latestRegistry ->
-                        return $ Right $ Env cache manager (Online manager) latestRegistry
+                        return $ Right $ Env cache manager (Online manager) (Lynx.injectRegistry latestRegistry)
 
                       Left problem ->
                         return $ Left $ problem
@@ -372,10 +374,10 @@ initEnv =
                 do  eitherRegistry <- Registry.update manager cache cachedRegistry
                     case eitherRegistry of
                       Right latestRegistry ->
-                        return $ Right $ Env cache manager (Online manager) latestRegistry
+                        return $ Right $ Env cache manager (Online manager) (Lynx.injectRegistry latestRegistry)
 
                       Left _ ->
-                        return $ Right $ Env cache manager Offline cachedRegistry
+                        return $ Right $ Env cache manager Offline (Lynx.injectRegistry cachedRegistry)
 
 
 

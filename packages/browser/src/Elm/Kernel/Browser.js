@@ -35,9 +35,7 @@ function _Browser_flush() {
 // ELEMENT
 
 
-var __Debugger_element;
-
-var _Browser_element = __Debugger_element || F4(function(impl, flagDecoder, debugMetadata, args)
+var _Browser_element = F4(function(impl, flagDecoder, debugMetadata, args)
 {
 	return __Platform_initialize(
 		flagDecoder,
@@ -70,9 +68,7 @@ var _Browser_element = __Debugger_element || F4(function(impl, flagDecoder, debu
 // DOCUMENT
 
 
-var __Debugger_document;
-
-var _Browser_document = __Debugger_document || F4(function(impl, flagDecoder, debugMetadata, args)
+var _Browser_document = F4(function(impl, flagDecoder, debugMetadata, args)
 {
 	return __Platform_initialize(
 		flagDecoder,

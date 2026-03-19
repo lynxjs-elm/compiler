@@ -1,9 +1,9 @@
 {
     "type": "package",
-    "name": "elm/virtual-dom",
-    "summary": "Core virtual DOM implementation, basis for HTML and SVG libraries",
+    "name": "lynxjs-elm/virtual-dom",
+    "summary": "LynxJS virtual DOM implementation for native UI rendering",
     "license": "BSD-3-Clause",
-    "version": "1.0.5",
+    "version": "1.0.0",
     "exposed-modules": [
         "VirtualDom"
     ],
