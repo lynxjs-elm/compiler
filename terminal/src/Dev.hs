@@ -15,6 +15,7 @@ import qualified Data.Time.Clock.POSIX as Time
 import qualified System.Directory as Dir
 import qualified System.Exit as SysExit
 import System.FilePath ((</>), takeExtension, takeFileName)
+import System.IO (hSetBuffering, stdout, BufferMode(..))
 import qualified System.Process as Process
 
 import qualified BackgroundWriter as BW
@@ -44,7 +45,8 @@ data Flags =
 
 run :: FilePath -> Flags -> IO ()
 run path (Flags maybePort) =
-  do  maybeRoot <- Stuff.findRoot
+  do  hSetBuffering stdout LineBuffering
+      maybeRoot <- Stuff.findRoot
       case maybeRoot of
         Nothing ->
           putStrLn "I cannot find an elm.json file. Run `lynxjs-elm init` first."
@@ -79,7 +81,10 @@ run path (Flags maybePort) =
                     -- Start static file server in background
                     let distDir = bundlerDir </> "dist"
                     let serveProc = (Process.proc "npx" ["serve", "-l", show port, "-n", distDir])
-                                      { Process.cwd = Just bundlerDir }
+                                      { Process.cwd = Just bundlerDir
+                                      , Process.std_out = Process.NoStream
+                                      , Process.std_err = Process.NoStream
+                                      }
                     (_, _, _, serveHandle) <- Process.createProcess serveProc
 
                     -- Print bundle URL
