@@ -55,13 +55,20 @@ uiElmJson :: BS.ByteString
 uiElmJson = $(embedFile "packages/ui/elm.json")
 
 
+cryptoSrc :: [(FilePath, BS.ByteString)]
+cryptoSrc = $(embedDir "packages/crypto/src")
+
+cryptoElmJson :: BS.ByteString
+cryptoElmJson = $(embedFile "packages/crypto/elm.json")
+
+
 
 -- IS FORK
 
 
 isFork :: Pkg.Name -> Bool
 isFork pkg =
-  pkg == Pkg.virtualDom || pkg == Pkg.browser || pkg == Pkg.http || pkg == Pkg.ui
+  pkg == Pkg.virtualDom || pkg == Pkg.browser || pkg == Pkg.http || pkg == Pkg.ui || pkg == Pkg.crypto
 
 
 
@@ -77,6 +84,7 @@ installAllForks cache =
       _ <- installFork cache Pkg.browser    (V.Version 1 0 0)
       _ <- installFork cache Pkg.http       (V.Version 1 0 0)
       _ <- installFork cache Pkg.ui         (V.Version 1 0 0)
+      _ <- installFork cache Pkg.crypto    (V.Version 1 0 0)
       return ()
 
 
@@ -107,6 +115,7 @@ getForkContent pkg
   | pkg == Pkg.browser    = Just (browserElmJson, browserSrc)
   | pkg == Pkg.http       = Just (httpElmJson, httpSrc)
   | pkg == Pkg.ui         = Just (uiElmJson, uiSrc)
+  | pkg == Pkg.crypto     = Just (cryptoElmJson, cryptoSrc)
   | otherwise             = Nothing
 
 
@@ -126,6 +135,7 @@ injectRegistry (Registry.Registry count versions) =
       , (Pkg.browser,    Registry.KnownVersions (V.Version 1 0 0) [])
       , (Pkg.http,       Registry.KnownVersions (V.Version 1 0 0) [])
       , (Pkg.ui,         Registry.KnownVersions (V.Version 1 0 0) [])
+      , (Pkg.crypto,     Registry.KnownVersions (V.Version 1 0 0) [])
       ]
     additions = filter (\(k, _) -> not (Map.member k versions)) newPkgs
     newVersions = foldr (\(k, v) m -> Map.insert k v m) versions additions

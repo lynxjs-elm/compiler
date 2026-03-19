@@ -1,0 +1,18 @@
+{
+    "type": "package",
+    "name": "lynxjs-elm/crypto",
+    "summary": "Elliptic curve cryptography via noble/curves",
+    "license": "BSD-3-Clause",
+    "version": "1.0.0",
+    "exposed-modules": [
+        "Crypto.Secp256k1",
+        "Crypto.Ed25519",
+        "Crypto.P256",
+        "Crypto.Cipher"
+    ],
+    "elm-version": "0.19.0 <= v < 0.20.0",
+    "dependencies": {
+        "elm/core": "1.0.0 <= v < 2.0.0"
+    },
+    "test-dependencies": {}
+}

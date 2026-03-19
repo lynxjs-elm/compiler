@@ -15,6 +15,7 @@ module Elm.Package
   , json, http, url
   , webgl, linearAlgebra
   , ui
+  , crypto
   --
   , suggestions
   , nearbyNames
@@ -203,6 +204,12 @@ ui =
   toName lynxjs_elm "ui"
 
 
+{-# NOINLINE crypto #-}
+crypto :: Name
+crypto =
+  toName lynxjs_elm "crypto"
+
+
 
 -- PACKAGE SUGGESTIONS
 
@@ -232,6 +239,10 @@ suggestions =
     , "Lynx" ==> ui
     , "Lynx.Attributes" ==> ui
     , "Lynx.Events" ==> ui
+    , "Crypto.Secp256k1" ==> crypto
+    , "Crypto.Ed25519" ==> crypto
+    , "Crypto.P256" ==> crypto
+    , "Crypto.Cipher" ==> crypto
     ]
 
 
