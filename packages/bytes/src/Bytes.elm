@@ -1,6 +1,8 @@
 module Bytes exposing
   ( Bytes
   , width
+  , toBase64
+  , fromBase64
   , Endianness(..)
   , getHostEndianness
   )
@@ -10,6 +12,9 @@ module Bytes exposing
 
 # Bytes
 @docs Bytes, width
+
+# Base64
+@docs toBase64, fromBase64
 
 # Endianness
 @docs Endianness, getHostEndianness
@@ -77,6 +82,50 @@ how many bytes there are!
 width : Bytes -> Int
 width =
   Elm.Kernel.Bytes.width
+
+
+
+-- BASE64
+
+
+{-| Encode bytes as a Base64 string. This is useful for embedding binary data
+in JSON.
+
+    import Bytes
+    import Bytes.Encode
+    import Json.Encode
+
+    encodeBytesAsJson : Bytes.Bytes -> Json.Encode.Value
+    encodeBytesAsJson bytes =
+        Json.Encode.string (Bytes.toBase64 bytes)
+-}
+toBase64 : Bytes -> String
+toBase64 =
+  Elm.Kernel.Bytes.toBase64
+
+
+{-| Decode a Base64 string into bytes. Returns `Nothing` if the string is not
+valid Base64.
+
+    import Bytes
+    import Json.Decode
+
+    bytesDecoder : Json.Decode.Decoder Bytes.Bytes
+    bytesDecoder =
+        Json.Decode.string
+            |> Json.Decode.andThen
+                (\str ->
+                    case Bytes.fromBase64 str of
+                        Just bytes ->
+                            Json.Decode.succeed bytes
+
+                        Nothing ->
+                            Json.Decode.fail "Invalid Base64 string"
+                )
+-}
+fromBase64 : String -> Maybe Bytes
+fromBase64 =
+  Elm.Kernel.Bytes.fromBase64
 
 
 

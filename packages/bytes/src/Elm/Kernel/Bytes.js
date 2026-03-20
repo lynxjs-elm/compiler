@@ -196,3 +196,34 @@ var _Bytes_read_string = F3(function(len, bytes, offset)
 });
 
 var _Bytes_decodeFailure = F2(function() { throw 0; });
+
+
+// BASE64
+
+function _Bytes_toBase64(bytes)
+{
+	var u8 = new Uint8Array(bytes.buffer, bytes.byteOffset, bytes.byteLength);
+	var binary = '';
+	for (var i = 0; i < u8.length; i++)
+	{
+		binary += String.fromCharCode(u8[i]);
+	}
+	return btoa(binary);
+}
+
+function _Bytes_fromBase64(str)
+{
+	try {
+		var binary = atob(str);
+		var len = binary.length;
+		var buffer = new ArrayBuffer(len);
+		var u8 = new Uint8Array(buffer);
+		for (var i = 0; i < len; i++)
+		{
+			u8[i] = binary.charCodeAt(i);
+		}
+		return __Maybe_Just(_Bytes_wrap(new DataView(buffer)));
+	} catch(e) {
+		return __Maybe_Nothing;
+	}
+}
