@@ -4,6 +4,7 @@ module Lynx.Patches
   , installAllForks
   , isFork
   , injectRegistry
+  , forkContentHash
   )
   where
 
@@ -11,6 +12,7 @@ module Lynx.Patches
 import qualified Data.ByteString as BS
 import Data.FileEmbed (embedDir, embedFile)
 import qualified Data.Map as Map
+import Data.Word (Word64)
 import qualified System.Directory as Dir
 import System.FilePath ((</>), takeDirectory)
 
@@ -60,6 +62,31 @@ cryptoSrc = $(embedDir "packages/crypto/src")
 
 cryptoElmJson :: BS.ByteString
 cryptoElmJson = $(embedFile "packages/crypto/elm.json")
+
+
+
+-- FORK CONTENT HASH
+--
+-- A hash of all embedded package content, used to invalidate the project
+-- cache (elm-stuff) when the compiler is rebuilt with updated packages.
+
+
+forkContentHash :: Word64
+forkContentHash =
+  let
+    hashBS :: Word64 -> BS.ByteString -> Word64
+    hashBS acc bs = BS.foldl' (\h b -> h * 31 + fromIntegral b) acc bs
+
+    allBytes :: [BS.ByteString]
+    allBytes = concat
+      [ virtualDomElmJson : map snd virtualDomSrc
+      , browserElmJson : map snd browserSrc
+      , httpElmJson : map snd httpSrc
+      , uiElmJson : map snd uiSrc
+      , cryptoElmJson : map snd cryptoSrc
+      ]
+  in
+  foldl' hashBS 0 allBytes
 
 
 

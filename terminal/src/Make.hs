@@ -149,7 +149,7 @@ getMode debug optimize =
 
 
 getExposed :: Details.Details -> Task (NE.List ModuleName.Raw)
-getExposed (Details.Details _ validOutline _ _ _ _) =
+getExposed (Details.Details _ _ validOutline _ _ _ _) =
   case validOutline of
     Details.ValidApp _ ->
       Task.throw Exit.MakeAppNeedsFileNames

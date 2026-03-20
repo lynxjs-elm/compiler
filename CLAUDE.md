@@ -41,7 +41,7 @@ examples/         # Demo apps (counter, hello-world, http-example)
 
 `packages/` contains forked elm/virtual-dom, elm/browser, elm/http, and the custom lynx/ui package. Upstream repos are at `github.com/lynxjs-elm/{virtual-dom,browser,http,ui}`. Their source is embedded into the compiler binary at build time via `file-embed` in `builder/src/Lynx/Patches.hs`. When a project depends on these packages, the compiler installs them from embedded content instead of downloading from package.elm-lang.org. The `lynx/ui` package is also injected into the package registry so the dependency solver can resolve it.
 
-After editing a fork, rebuild the compiler (`stack build && stack install`) and clear `~/.lynxjs-elm` to pick up changes.
+After editing a fork, rebuild the compiler (`stack build && stack install`). The compiler automatically detects embedded content changes and invalidates caches.
 
 ## Kernel JS rules
 

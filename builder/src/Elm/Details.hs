@@ -67,6 +67,7 @@ import qualified Stuff
 data Details =
   Details
     { _outlineTime :: File.Time
+    , _forkHash :: Word64
     , _outline :: ValidOutline
     , _buildID :: BuildID
     , _locals :: Map.Map ModuleName.Raw Local
@@ -125,14 +126,14 @@ type Interfaces =
 
 
 loadObjects :: FilePath -> Details -> IO (MVar (Maybe Opt.GlobalGraph))
-loadObjects root (Details _ _ _ _ _ extras) =
+loadObjects root (Details _ _ _ _ _ _ extras) =
   case extras of
     ArtifactsFresh _ o -> newMVar (Just o)
     ArtifactsCached    -> fork (File.readBinary (Stuff.objects root))
 
 
 loadInterfaces :: FilePath -> Details -> IO (MVar (Maybe Interfaces))
-loadInterfaces root (Details _ _ _ _ _ extras) =
+loadInterfaces root (Details _ _ _ _ _ _ extras) =
   case extras of
     ArtifactsFresh i _ -> newMVar (Just i)
     ArtifactsCached    -> fork (File.readBinary (Stuff.interfaces root))
@@ -164,8 +165,8 @@ load style scope root =
         Nothing ->
           generate style scope root newTime
 
-        Just details@(Details oldTime _ buildID _ _ _) ->
-          if oldTime == newTime
+        Just details@(Details oldTime oldHash _ buildID _ _ _) ->
+          if oldTime == newTime && oldHash == Lynx.forkContentHash
           then return (Right details { _buildID = buildID + 1 })
           else generate style scope root newTime
 
@@ -331,7 +332,7 @@ verifyDependencies env@(Env key scope root cache _ _ _) time outline solution di
             objs = Map.foldr addObjects Opt.empty artifacts
             ifaces = Map.foldrWithKey (addInterfaces directDeps) Map.empty artifacts
             foreigns = Map.map (OneOrMore.destruct Foreign) $ Map.foldrWithKey gatherForeigns Map.empty $ Map.intersection artifacts directDeps
-            details = Details time outline 0 Map.empty foreigns (ArtifactsFresh ifaces objs)
+            details = Details time Lynx.forkContentHash outline 0 Map.empty foreigns (ArtifactsFresh ifaces objs)
           in
           do  BW.writeBinary scope (Stuff.objects    root) objs
               BW.writeBinary scope (Stuff.interfaces root) ifaces
@@ -789,14 +790,15 @@ endpointDecoder =
 
 
 instance Binary Details where
-  put (Details a b c d e _) = put a >> put b >> put c >> put d >> put e
+  put (Details a b c d e f _) = put a >> put b >> put c >> put d >> put e >> put f
   get =
     do  a <- get
         b <- get
         c <- get
         d <- get
         e <- get
-        return (Details a b c d e ArtifactsCached)
+        f <- get
+        return (Details a b c d e f ArtifactsCached)
 
 
 instance Binary ValidOutline where

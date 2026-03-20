@@ -75,7 +75,7 @@ data Env =
 
 
 makeEnv :: Reporting.BKey -> FilePath -> Details.Details -> IO Env
-makeEnv key root (Details.Details _ validOutline buildID locals foreigns _) =
+makeEnv key root (Details.Details _ _ validOutline buildID locals foreigns _) =
   case validOutline of
     Details.ValidApp givenSrcDirs ->
       do  srcDirs <- traverse (toAbsoluteSrcDir root) (NE.toList givenSrcDirs)
@@ -749,9 +749,9 @@ projectTypeToPkg projectType =
 
 
 writeDetails :: FilePath -> Details.Details -> Map.Map ModuleName.Raw Result -> IO ()
-writeDetails root (Details.Details time outline buildID locals foreigns extras) results =
+writeDetails root (Details.Details time fh outline buildID locals foreigns extras) results =
   File.writeBinary (Stuff.details root) $
-    Details.Details time outline buildID (Map.foldrWithKey addNewLocal locals results) foreigns extras
+    Details.Details time fh outline buildID (Map.foldrWithKey addNewLocal locals results) foreigns extras
 
 
 addNewLocal :: ModuleName.Raw -> Result -> Map.Map ModuleName.Raw Details.Local -> Map.Map ModuleName.Raw Details.Local
