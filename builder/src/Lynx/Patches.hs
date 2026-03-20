@@ -65,6 +65,13 @@ cryptoElmJson :: BS.ByteString
 cryptoElmJson = $(embedFile "packages/crypto/elm.json")
 
 
+bytesSrc :: [(FilePath, BS.ByteString)]
+bytesSrc = $(embedDir "packages/bytes/src")
+
+bytesElmJson :: BS.ByteString
+bytesElmJson = $(embedFile "packages/bytes/elm.json")
+
+
 
 -- FORK CONTENT HASH
 --
@@ -85,6 +92,7 @@ forkContentHash =
       , httpElmJson : map snd httpSrc
       , uiElmJson : map snd uiSrc
       , cryptoElmJson : map snd cryptoSrc
+      , bytesElmJson : map snd bytesSrc
       ]
   in
   foldl' hashBS 0 allBytes
@@ -96,7 +104,7 @@ forkContentHash =
 
 isFork :: Pkg.Name -> Bool
 isFork pkg =
-  pkg == Pkg.virtualDom || pkg == Pkg.browser || pkg == Pkg.http || pkg == Pkg.ui || pkg == Pkg.crypto
+  pkg == Pkg.virtualDom || pkg == Pkg.browser || pkg == Pkg.http || pkg == Pkg.ui || pkg == Pkg.crypto || pkg == Pkg.bytes
 
 
 -- FORK SUGGESTION
@@ -110,6 +118,7 @@ forkSuggestion pkg
   | chars == "elm/virtual-dom" = Just Pkg.virtualDom
   | chars == "elm/browser"     = Just Pkg.browser
   | chars == "elm/http"        = Just Pkg.http
+  | chars == "elm/bytes"       = Just Pkg.bytes
   | otherwise                  = Nothing
   where
     chars = Pkg.toChars pkg
@@ -129,6 +138,7 @@ installAllForks cache =
       _ <- installFork cache Pkg.http       (V.Version 1 0 0)
       _ <- installFork cache Pkg.ui         (V.Version 1 0 0)
       _ <- installFork cache Pkg.crypto    (V.Version 1 0 0)
+      _ <- installFork cache Pkg.bytes     (V.Version 1 0 0)
       return ()
 
 
@@ -160,6 +170,7 @@ getForkContent pkg
   | pkg == Pkg.http       = Just (httpElmJson, httpSrc)
   | pkg == Pkg.ui         = Just (uiElmJson, uiSrc)
   | pkg == Pkg.crypto     = Just (cryptoElmJson, cryptoSrc)
+  | pkg == Pkg.bytes      = Just (bytesElmJson, bytesSrc)
   | otherwise             = Nothing
 
 
@@ -180,6 +191,7 @@ injectRegistry (Registry.Registry count versions) =
       , (Pkg.http,       Registry.KnownVersions (V.Version 1 0 0) [])
       , (Pkg.ui,         Registry.KnownVersions (V.Version 1 0 0) [])
       , (Pkg.crypto,     Registry.KnownVersions (V.Version 1 0 0) [])
+      , (Pkg.bytes,      Registry.KnownVersions (V.Version 1 0 0) [])
       ]
     additions = filter (\(k, _) -> not (Map.member k versions)) newPkgs
     newVersions = foldr (\(k, v) m -> Map.insert k v m) versions additions

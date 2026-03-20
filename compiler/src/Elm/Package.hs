@@ -16,6 +16,7 @@ module Elm.Package
   , webgl, linearAlgebra
   , ui
   , crypto
+  , bytes
   --
   , suggestions
   , nearbyNames
@@ -210,6 +211,12 @@ crypto =
   toName lynxjs_elm "crypto"
 
 
+{-# NOINLINE bytes #-}
+bytes :: Name
+bytes =
+  toName lynxjs_elm "bytes"
+
+
 
 -- PACKAGE SUGGESTIONS
 
@@ -239,6 +246,9 @@ suggestions =
     , "Lynx" ==> ui
     , "Lynx.Attributes" ==> ui
     , "Lynx.Events" ==> ui
+    , "Bytes" ==> bytes
+    , "Bytes.Decode" ==> bytes
+    , "Bytes.Encode" ==> bytes
     , "Crypto.Secp256k1" ==> crypto
     , "Crypto.Ed25519" ==> crypto
     , "Crypto.P256" ==> crypto

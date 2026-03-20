@@ -1,6 +1,7 @@
 /*
 
 import Dict exposing (empty, update)
+import Elm.Kernel.Bytes exposing (wrap)
 import Elm.Kernel.Scheduler exposing (binding, fail, rawSpawn, succeed)
 import Elm.Kernel.Utils exposing (Tuple2)
 import Http exposing (BadUrl_, Timeout_, NetworkError_, BadStatus_, GoodStatus_, Sending, Receiving)
@@ -147,7 +148,7 @@ var _Http_mapExpect = F2(function(func, expect)
 
 function _Http_toDataView(arrayBuffer)
 {
-	return new DataView(arrayBuffer);
+	return __Bytes_wrap(new DataView(arrayBuffer));
 }
 
 
