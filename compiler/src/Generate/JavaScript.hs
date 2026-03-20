@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, PatternGuards #-}
 module Generate.JavaScript
   ( generate
   , generateForRepl
@@ -8,6 +8,7 @@ module Generate.JavaScript
 
 
 import Prelude hiding (cycle, print)
+import qualified Data.ByteString as BS
 import qualified Data.ByteString.Builder as B
 import qualified Data.List as List
 import Data.Map ((!))
@@ -342,7 +343,7 @@ drawCycle names =
 
 generateKernel :: Mode.Mode -> [K.Chunk] -> B.Builder
 generateKernel mode chunks =
-  List.foldr (addChunk mode) mempty chunks
+  List.foldr (addChunk mode) mempty (stripDeadDefs mode chunks)
 
 
 addChunk :: Mode.Mode -> K.Chunk -> B.Builder -> B.Builder
@@ -381,6 +382,95 @@ addChunk mode chunk builder =
 
         Mode.Prod _ ->
           builder
+
+
+
+-- STRIP DEAD DEFS
+--
+-- When kernel JS has __Debug/__Prod variants, the inactive one gets
+-- renamed with _UNUSED. This strips those dead definitions entirely,
+-- tracking brace/paren counts across chunk boundaries (since a single
+-- definition body may be split across K.JS chunks interleaved with
+-- K.JsEnum, K.ElmField, etc.).
+
+
+stripDeadDefs :: Mode.Mode -> [K.Chunk] -> [K.Chunk]
+stripDeadDefs mode = go
+  where
+    go [] = []
+    go (K.JS before : marker : rest)
+      | isDeadMarker mode marker
+      , not (isInlineConditional before) =
+          let before' = stripTrailingDef before
+              rest' = skipDeadBody 0 0 rest
+          in
+          prependChunk before' $ go rest'
+    go (chunk : rest) = chunk : go rest
+
+    prependChunk bs rest
+      | BS.null bs = rest
+      | otherwise  = K.JS bs : rest
+
+
+-- | Detect inline conditionals like /**__Prod/ which end with /*
+-- These use comment-based wrapping, NOT definition-level stripping.
+isInlineConditional :: BS.ByteString -> Bool
+isInlineConditional bs =
+  not (BS.null bs) && BS.index bs (BS.length bs - 1) == 0x2A {- * -}
+
+
+isDeadMarker :: Mode.Mode -> K.Chunk -> Bool
+isDeadMarker mode chunk =
+  case (mode, chunk) of
+    (Mode.Prod _, K.Debug) -> True
+    (Mode.Dev _, K.Prod) -> True
+    _ -> False
+
+
+-- | Skip all chunks that form the body of a dead definition.
+-- Tracks brace/paren counts across K.JS chunks. Non-JS chunks
+-- (K.JsEnum, K.ElmField, etc.) don't affect the count.
+-- Stops when a K.JS chunk contains a newline at brace=0, paren=0.
+skipDeadBody :: Int -> Int -> [K.Chunk] -> [K.Chunk]
+skipDeadBody _ _ [] = []
+skipDeadBody bc pc (K.JS js : rest) =
+  case scanForEnd bc pc js of
+    Left (bc', pc') ->
+      -- Didn't find statement end in this chunk; continue scanning
+      skipDeadBody bc' pc' rest
+    Right remaining ->
+      -- Found statement end; return the remaining text + rest
+      if BS.null remaining then rest else K.JS remaining : rest
+skipDeadBody bc pc (_ : rest) =
+  -- Non-JS chunks (JsEnum, ElmField, etc.) don't affect brace/paren count
+  skipDeadBody bc pc rest
+
+
+-- | Scan a JS ByteString for the end of the current statement.
+-- Returns Left (bc', pc') if the statement continues past this chunk,
+-- or Right remaining if we found the end (remaining text after it).
+scanForEnd :: Int -> Int -> BS.ByteString -> Either (Int, Int) BS.ByteString
+scanForEnd bc0 pc0 bs = go 0 bc0 pc0
+  where
+    len = BS.length bs
+    go i bc pc
+      | i >= len = Left (bc, pc)
+      | b == 0x7B {- { -} = go (i + 1) (bc + 1) pc
+      | b == 0x7D {- } -} = go (i + 1) (bc - 1) pc
+      | b == 0x28 {- ( -} = go (i + 1) bc (pc + 1)
+      | b == 0x29 {- ) -} = go (i + 1) bc (pc - 1)
+      | b == 0x0A {- \n -} && bc <= 0 && pc <= 0 = Right (BS.drop (i + 1) bs)
+      | otherwise = go (i + 1) bc pc
+      where b = BS.index bs i
+
+
+-- | Strip trailing "var name" or "function name" from a JS chunk.
+-- e.g., "...prev;\nvar name" -> "...prev;\n"
+stripTrailingDef :: BS.ByteString -> BS.ByteString
+stripTrailingDef bs =
+  case BS.elemIndexEnd 0x0A {-\n-} bs of
+    Just idx -> BS.take (idx + 1) bs
+    Nothing -> BS.empty
 
 
 

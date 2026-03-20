@@ -48,6 +48,7 @@ data Expr
   | Json Json.Value
   | Array [Expr]
   | Object [(Name, Expr)]
+  | ObjectSpread Expr [(Name, Expr)]
   | Ref Name
   | Access Expr Name -- foo.bar
   | Index  Expr Expr -- foo[bar]
@@ -376,6 +377,22 @@ fromExpr level@(Level indent nextLevel@(Level deeperIndent _)) grouping expressi
           <> "\n" <> indent <> "}"
         else
           "{" <> commaSep builders <> "}"
+
+    ObjectSpread base fields ->
+      (,) Many $
+        let
+          (baseLines, baseB) = fromExpr level Whatever base
+          spreadEntry = "..." <> baseB
+          (anyMany, fieldBuilders) = linesMap (fromField nextLevel) fields
+          allBuilders = spreadEntry : fieldBuilders
+        in
+        if anyMany || baseLines == Many then
+          "{\n"
+          <> deeperIndent
+          <> commaNewlineSep level allBuilders
+          <> "\n" <> indent <> "}"
+        else
+          "{" <> commaSep allBuilders <> "}"
 
     Ref name ->
       ( One, Name.toBuilder name )

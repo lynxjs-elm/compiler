@@ -103,7 +103,8 @@ runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs verbose) 
                     _ ->
                       do  _name <- hasOneMain artifacts
                           builder <- toBuilder root details desiredMode artifacts
-                          Task.io $ bundle style "main.lynx.bundle" builder (Build.getRootNames artifacts) verbose
+                          let isOptimized = case desiredMode of { Prod -> True; _ -> False }
+                          Task.io $ bundle style "main.lynx.bundle" builder (Build.getRootNames artifacts) verbose isOptimized
 
                 Just DevNull ->
                   return ()
@@ -125,7 +126,8 @@ runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs verbose) 
                 Just (Bundle target) ->
                   do  _name <- hasOneMain artifacts
                       builder <- toBuilder root details desiredMode artifacts
-                      Task.io $ bundle style target builder (Build.getRootNames artifacts) verbose
+                      let isOptimized = case desiredMode of { Prod -> True; _ -> False }
+                      Task.io $ bundle style target builder (Build.getRootNames artifacts) verbose isOptimized
 
 
 
@@ -339,8 +341,8 @@ isDevNull name =
 -- BUNDLE
 
 
-bundle :: Reporting.Style -> FilePath -> B.Builder -> NE.List ModuleName.Raw -> Bool -> IO ()
-bundle style target js names verbose =
+bundle :: Reporting.Style -> FilePath -> B.Builder -> NE.List ModuleName.Raw -> Bool -> Bool -> IO ()
+bundle style target js names verbose optimize =
   do  startTime <- Time.getPOSIXTime
       home <- Stuff.getElmHome
       let bundlerDir = home </> "bundler"
@@ -350,7 +352,7 @@ bundle style target js names verbose =
 
       -- Set up bundler project
       Dir.createDirectoryIfMissing True srcDir
-      setupBundlerProject bundlerDir
+      setupBundlerProject bundlerDir optimize
 
       -- Write compiled Elm JS
       File.writeBuilder elmFile js
@@ -389,14 +391,14 @@ assembleAndBuild bundlerDir verbose =
       callIn bundlerDir "npx" ["rspack", "build"] verbose
 
 
-setupBundlerProject :: FilePath -> IO ()
-setupBundlerProject dir =
+setupBundlerProject :: FilePath -> Bool -> IO ()
+setupBundlerProject dir optimize =
   do  let pkgFile = dir </> "package.json"
       let cfgFile = dir </> "rspack.config.js"
       let stubsFile = dir </> "src" </> "stubs.js"
       let initFile = dir </> "src" </> "init.js"
       writeFile pkgFile packageJson
-      writeFile cfgFile rspackConfig
+      writeFile cfgFile (rspackConfig optimize)
       writeFile stubsFile stubsJs
       writeFile initFile initJs
 
@@ -473,13 +475,15 @@ packageJson = unlines
   ]
 
 
-rspackConfig :: String
-rspackConfig = unlines
+rspackConfig :: Bool -> String
+rspackConfig optimize = unlines
   [ "import { LynxEncodePlugin, LynxTemplatePlugin } from '@lynx-js/template-webpack-plugin';"
   , "import { defineConfig } from '@rspack/cli';"
   , ""
   , "export default defineConfig({"
   , "  entry: { main: './src/all.js' },"
+  , "  mode: '" ++ (if optimize then "production" else "development") ++ "',"
+  , "  optimization: { minimize: " ++ (if optimize then "true" else "false") ++ " },"
   , "  plugins: ["
   , "    new LynxEncodePlugin(),"
   , "    new LynxTemplatePlugin({ filename: 'main.lynx.bundle', intermediate: 'main' }),"

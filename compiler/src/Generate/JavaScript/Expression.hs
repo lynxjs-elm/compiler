@@ -149,10 +149,17 @@ generate mode expression =
 
     Opt.Update record fields ->
       JsExpr $
-        JS.Call (JS.Ref (JsName.fromKernel Name.utils "update"))
-          [ generateJsExpr mode record
-          , generateRecord mode fields
-          ]
+        case mode of
+          Mode.Prod _ ->
+            JS.ObjectSpread (generateJsExpr mode record)
+              (map (\(field, value) -> (generateField mode field, generateJsExpr mode value))
+                   (Map.toList fields))
+
+          Mode.Dev _ ->
+            JS.Call (JS.Ref (JsName.fromKernel Name.utils "update"))
+              [ generateJsExpr mode record
+              , generateRecord mode fields
+              ]
 
     Opt.Record fields ->
       JsExpr $ generateRecord mode fields

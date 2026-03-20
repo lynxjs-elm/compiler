@@ -1,7 +1,6 @@
 /*
 
 import Basics exposing (identity)
-import Elm.Kernel.Debug exposing (crash)
 import Elm.Kernel.Json exposing (equality, runHelp, unwrap, wrap)
 import Elm.Kernel.List exposing (Cons, Nil)
 import Elm.Kernel.Utils exposing (Tuple2)
@@ -15,29 +14,26 @@ import VirtualDom exposing (toHandlerInt)
 
 var _Lynx_g = (typeof globalThis !== 'undefined' ? globalThis : scope);
 function _Lynx_papi(name) { return _Lynx_g['_' + '_' + name] || function() {}; }
+var _Lynx_createViewFn = _Lynx_papi('CreateView');
+var _Lynx_createTextFn = _Lynx_papi('CreateText');
+var _Lynx_createImageFn = _Lynx_papi('CreateImage');
 function _Lynx_createElement(tag) {
 	var pId = (_Lynx_g['native'] && _Lynx_g['native']['currentPageId']) || 0;
-	var creators = { 'view': 'CreateView', 'text': 'CreateText', 'image': 'CreateImage' };
-	var name = creators[tag] || 'CreateView';
-	var fn = _Lynx_g['_' + '_' + name];
-	if (typeof fn === 'function') { return fn(pId); }
-	return _Lynx_papi('CreateElement')(tag, pId);
+	return (tag === 'text' ? _Lynx_createTextFn
+		: tag === 'image' ? _Lynx_createImageFn
+		: _Lynx_createViewFn)(pId);
 }
-function _Lynx_createRawText(text) {
-	var fn = _Lynx_g['_' + '_CreateRawText'];
-	if (typeof fn === 'function') { return fn(text); }
-	return {};
-}
+var _Lynx_createRawText = _Lynx_papi('CreateRawText');
 var _Lynx_appendChild = _Lynx_papi('AppendElement');
 var _Lynx_removeElement = _Lynx_papi('RemoveElement');
 var _Lynx_replaceElement = _Lynx_papi('ReplaceElement');
 var _Lynx_insertBefore = _Lynx_papi('InsertElementBefore');
 var _Lynx_setAttribute = _Lynx_papi('SetAttribute');
-var _Lynx_getChildren = _Lynx_g['_' + '_GetChildren'] || function() { return []; };
-var _Lynx_getParent = _Lynx_g['_' + '_GetParent'] || function() { return null; };
+var _Lynx_getChildren = _Lynx_papi('GetChildren');
+var _Lynx_getParent = _Lynx_papi('GetParent');
 var _Lynx_addEvent = _Lynx_papi('AddEvent');
 var _Lynx_setInlineStyles = _Lynx_papi('SetInlineStyles');
-var _VirtualDom_elementMeta = new Map();
+var _VirtualDom_elementMeta = new WeakMap();
 function _VirtualDom_getMeta(el) {
 	var meta = _VirtualDom_elementMeta.get(el);
 	if (!meta) { meta = {}; _VirtualDom_elementMeta.set(el, meta); }
@@ -529,11 +525,7 @@ function _VirtualDom_applyFacts(domNode, eventNode, facts)
 
 function _VirtualDom_applyStyles(domNode, styles)
 {
-	var _sIS = _Lynx_g['_' + '_SetInlineStyles'];
-	if (typeof _sIS === 'function')
-	{
-		_sIS(domNode, styles);
-	}
+	_Lynx_setInlineStyles(domNode, styles);
 }
 
 
@@ -1454,7 +1446,7 @@ function _VirtualDom_applyPatch(domNode, patch)
 			return patch.__data(domNode);
 
 		default:
-			__Debug_crash(10); // 'Ran into an unknown patch!'
+			throw new Error('VirtualDom: unknown patch type');
 	}
 }
 
