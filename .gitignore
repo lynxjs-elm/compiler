@@ -9,3 +9,4 @@ cabal.sandbox.config
 travis.log
 .stack-work/
 stack.yaml.lock
+*.lynx.bundle
