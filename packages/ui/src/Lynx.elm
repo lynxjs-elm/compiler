@@ -31,7 +31,7 @@ type alias Attribute msg =
 {-| A generic container element, equivalent to `<view>` in LynxJS.
 This is the primary layout building block.
 
-    view [ Lynx.Attributes.flexDirection "row" ]
+    view [ Lynx.Attributes.flexDirection Row ]
         [ text [] [ textContent "Hello" ]
         ]
 -}
@@ -43,7 +43,7 @@ view =
 {-| A text container element, equivalent to `<text>` in LynxJS.
 Use this when you need to apply styles or attributes to text.
 
-    text [ Lynx.Attributes.fontSize "18px" ]
+    text [ Lynx.Attributes.fontSize 18 ]
         [ textContent "Styled text" ]
 -}
 text : List (Attribute msg) -> List (Node msg) -> Node msg
@@ -72,7 +72,7 @@ image =
 
 {-| A scrollable container, equivalent to `<scroll-view>` in LynxJS.
 
-    scrollView [ Lynx.Attributes.scrollDirection "vertical" ]
+    scrollView [ Lynx.Attributes.scrollDirection Vertical ]
         [ view [] [ textContent "Item 1" ]
         , view [] [ textContent "Item 2" ]
         ]

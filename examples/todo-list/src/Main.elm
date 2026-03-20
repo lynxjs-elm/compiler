@@ -5,7 +5,7 @@ module Main exposing (main)
 
 import Browser
 import Lynx
-import Lynx.Attributes as Attr
+import Lynx.Attributes as Attr exposing (Alignment(..), FlexDirection(..), FontWeight(..), ScrollDirection(..))
 import Lynx.Events exposing (onTap, onInput)
 import VirtualDom exposing (Node)
 
@@ -104,23 +104,23 @@ update msg model =
 view : Model -> Node Msg
 view model =
     Lynx.view
-        [ Attr.flexDirection "column"
+        [ Attr.flexDirection Column
         , Attr.padding 20
         , Attr.flex 1
         ]
         [ -- Header
           Lynx.text
             [ Attr.fontSize 28
-            , Attr.fontWeight "bold"
+            , Attr.fontWeight Bold
             , Attr.marginBottom 16
             ]
             [ Lynx.textContent "Todo List" ]
 
         -- Input row
         , Lynx.view
-            [ Attr.flexDirection "row"
+            [ Attr.flexDirection Row
             , Attr.marginBottom 16
-            , Attr.alignItems "center"
+            , Attr.alignItems Center
             ]
             [ Lynx.input
                 [ onInput UpdateDraft
@@ -161,7 +161,7 @@ view model =
         -- Items
         , Lynx.scrollView
             [ Attr.flex 1
-            , Attr.scrollDirection "vertical"
+            , Attr.scrollDirection Vertical
             ]
             (List.map viewItem model.items)
         ]
@@ -179,8 +179,8 @@ summaryText items =
 viewItem : TodoItem -> Node Msg
 viewItem item =
     Lynx.view
-        [ Attr.flexDirection "row"
-        , Attr.alignItems "center"
+        [ Attr.flexDirection Row
+        , Attr.alignItems Center
         , Attr.paddingTop 12
         , Attr.paddingBottom 12
         , Attr.borderWidth 1
@@ -197,8 +197,8 @@ viewItem item =
                 (if item.done then "#4a90d9" else "#cccccc")
             , Attr.backgroundColor
                 (if item.done then "#4a90d9" else "#ffffff")
-            , Attr.alignItems "center"
-            , Attr.justifyContent "center"
+            , Attr.alignItems Center
+            , Attr.justifyContent Center
             , Attr.marginRight 12
             ]
             [ if item.done then

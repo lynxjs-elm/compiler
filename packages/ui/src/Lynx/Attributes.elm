@@ -1,14 +1,24 @@
 module Lynx.Attributes exposing
     ( width, height, minWidth, minHeight, maxWidth, maxHeight
-    , display, flexDirection, flexWrap, justifyContent, alignItems, alignSelf, flex, flexGrow, flexShrink
+    , Display(..), display
+    , FlexDirection(..), flexDirection
+    , FlexWrap(..), flexWrap
+    , Alignment(..), justifyContent, alignItems, alignSelf
+    , flex, flexGrow, flexShrink
     , padding, paddingTop, paddingRight, paddingBottom, paddingLeft
     , margin, marginTop, marginRight, marginBottom, marginLeft
-    , position, top, right, bottom, left, zIndex
-    , backgroundColor, opacity, overflow
+    , Position(..), position, top, right, bottom, left, zIndex
+    , backgroundColor, opacity
+    , Overflow(..), overflow
     , borderWidth, borderColor, borderRadius
-    , fontSize, fontWeight, fontFamily, color, textAlign, lineHeight, textOverflow
+    , fontSize
+    , FontWeight(..), fontWeight
+    , fontFamily, color
+    , TextAlign(..), textAlign
+    , lineHeight
+    , TextOverflow(..), textOverflow
     , src, placeholder, value
-    , scrollDirection
+    , ScrollDirection(..), scrollDirection
     , id, class_
     )
 
@@ -16,29 +26,39 @@ module Lynx.Attributes exposing
 
 # Layout
 @docs width, height, minWidth, minHeight, maxWidth, maxHeight
-@docs display, flexDirection, flexWrap, justifyContent, alignItems, alignSelf, flex, flexGrow, flexShrink
+@docs Display, display
+@docs FlexDirection, flexDirection
+@docs FlexWrap, flexWrap
+@docs Alignment, justifyContent, alignItems, alignSelf
+@docs flex, flexGrow, flexShrink
 
 # Spacing
 @docs padding, paddingTop, paddingRight, paddingBottom, paddingLeft
 @docs margin, marginTop, marginRight, marginBottom, marginLeft
 
 # Positioning
-@docs position, top, right, bottom, left, zIndex
+@docs Position, position, top, right, bottom, left, zIndex
 
 # Appearance
-@docs backgroundColor, opacity, overflow
+@docs backgroundColor, opacity
+@docs Overflow, overflow
 
 # Borders
 @docs borderWidth, borderColor, borderRadius
 
 # Typography
-@docs fontSize, fontWeight, fontFamily, color, textAlign, lineHeight, textOverflow
+@docs fontSize
+@docs FontWeight, fontWeight
+@docs fontFamily, color
+@docs TextAlign, textAlign
+@docs lineHeight
+@docs TextOverflow, textOverflow
 
 # Content
 @docs src, placeholder, value
 
 # Scrolling
-@docs scrollDirection
+@docs ScrollDirection, scrollDirection
 
 # Identity
 @docs id, class_
@@ -124,39 +144,102 @@ maxHeight =
 
 
 {-| -}
-display : String -> VirtualDom.Attribute msg
-display =
-    style "display"
+type Display
+    = Flex
+    | DisplayNone
 
 
 {-| -}
-flexDirection : String -> VirtualDom.Attribute msg
-flexDirection =
-    style "flexDirection"
+display : Display -> VirtualDom.Attribute msg
+display d =
+    style "display" <|
+        case d of
+            Flex -> "flex"
+            DisplayNone -> "none"
 
 
 {-| -}
-flexWrap : String -> VirtualDom.Attribute msg
-flexWrap =
-    style "flexWrap"
+type FlexDirection
+    = Row
+    | Column
+    | RowReverse
+    | ColumnReverse
 
 
 {-| -}
-justifyContent : String -> VirtualDom.Attribute msg
-justifyContent =
-    style "justifyContent"
+flexDirection : FlexDirection -> VirtualDom.Attribute msg
+flexDirection d =
+    style "flexDirection" <|
+        case d of
+            Row -> "row"
+            Column -> "column"
+            RowReverse -> "row-reverse"
+            ColumnReverse -> "column-reverse"
 
 
 {-| -}
-alignItems : String -> VirtualDom.Attribute msg
-alignItems =
-    style "alignItems"
+type FlexWrap
+    = Wrap
+    | NoWrap
+    | WrapReverse
 
 
 {-| -}
-alignSelf : String -> VirtualDom.Attribute msg
-alignSelf =
-    style "alignSelf"
+flexWrap : FlexWrap -> VirtualDom.Attribute msg
+flexWrap w =
+    style "flexWrap" <|
+        case w of
+            Wrap -> "wrap"
+            NoWrap -> "nowrap"
+            WrapReverse -> "wrap-reverse"
+
+
+{-| Alignment values for `justifyContent`, `alignItems`, and `alignSelf`.
+
+Not all values are valid for all properties — `SpaceBetween`, `SpaceAround`,
+and `SpaceEvenly` only apply to `justifyContent`, while `Stretch` and `Baseline`
+only apply to `alignItems` and `alignSelf`.
+-}
+type Alignment
+    = Start
+    | Center
+    | End
+    | SpaceBetween
+    | SpaceAround
+    | SpaceEvenly
+    | Stretch
+    | Baseline
+
+
+alignmentToString : Alignment -> String
+alignmentToString a =
+    case a of
+        Start -> "flex-start"
+        Center -> "center"
+        End -> "flex-end"
+        SpaceBetween -> "space-between"
+        SpaceAround -> "space-around"
+        SpaceEvenly -> "space-evenly"
+        Stretch -> "stretch"
+        Baseline -> "baseline"
+
+
+{-| -}
+justifyContent : Alignment -> VirtualDom.Attribute msg
+justifyContent a =
+    style "justifyContent" (alignmentToString a)
+
+
+{-| -}
+alignItems : Alignment -> VirtualDom.Attribute msg
+alignItems a =
+    style "alignItems" (alignmentToString a)
+
+
+{-| -}
+alignSelf : Alignment -> VirtualDom.Attribute msg
+alignSelf a =
+    style "alignSelf" (alignmentToString a)
 
 
 {-| -}
@@ -246,9 +329,18 @@ marginLeft =
 
 
 {-| -}
-position : String -> VirtualDom.Attribute msg
-position =
-    style "position"
+type Position
+    = Relative
+    | Absolute
+
+
+{-| -}
+position : Position -> VirtualDom.Attribute msg
+position p =
+    style "position" <|
+        case p of
+            Relative -> "relative"
+            Absolute -> "absolute"
 
 
 {-| -}
@@ -298,9 +390,20 @@ opacity =
 
 
 {-| -}
-overflow : String -> VirtualDom.Attribute msg
-overflow =
-    style "overflow"
+type Overflow
+    = Visible
+    | Hidden
+    | Scroll
+
+
+{-| -}
+overflow : Overflow -> VirtualDom.Attribute msg
+overflow o =
+    style "overflow" <|
+        case o of
+            Visible -> "visible"
+            Hidden -> "hidden"
+            Scroll -> "scroll"
 
 
 
@@ -336,9 +439,18 @@ fontSize =
 
 
 {-| -}
-fontWeight : String -> VirtualDom.Attribute msg
-fontWeight =
-    style "fontWeight"
+type FontWeight
+    = Normal
+    | Bold
+
+
+{-| -}
+fontWeight : FontWeight -> VirtualDom.Attribute msg
+fontWeight w =
+    style "fontWeight" <|
+        case w of
+            Normal -> "normal"
+            Bold -> "bold"
 
 
 {-| -}
@@ -354,9 +466,22 @@ color =
 
 
 {-| -}
-textAlign : String -> VirtualDom.Attribute msg
-textAlign =
-    style "textAlign"
+type TextAlign
+    = Left
+    | Right
+    | TextCenter
+    | Justify
+
+
+{-| -}
+textAlign : TextAlign -> VirtualDom.Attribute msg
+textAlign a =
+    style "textAlign" <|
+        case a of
+            Left -> "left"
+            Right -> "right"
+            TextCenter -> "center"
+            Justify -> "justify"
 
 
 {-| -}
@@ -366,9 +491,18 @@ lineHeight =
 
 
 {-| -}
-textOverflow : String -> VirtualDom.Attribute msg
-textOverflow =
-    style "textOverflow"
+type TextOverflow
+    = Clip
+    | Ellipsis
+
+
+{-| -}
+textOverflow : TextOverflow -> VirtualDom.Attribute msg
+textOverflow o =
+    style "textOverflow" <|
+        case o of
+            Clip -> "clip"
+            Ellipsis -> "ellipsis"
 
 
 
@@ -400,11 +534,20 @@ value =
 -- SCROLLING
 
 
-{-| Scroll direction for scroll-view: "vertical" or "horizontal".
+{-| -}
+type ScrollDirection
+    = Vertical
+    | Horizontal
+
+
+{-| Scroll direction for scroll-view.
 -}
-scrollDirection : String -> VirtualDom.Attribute msg
-scrollDirection =
-    attr "scroll-direction"
+scrollDirection : ScrollDirection -> VirtualDom.Attribute msg
+scrollDirection d =
+    attr "scroll-direction" <|
+        case d of
+            Vertical -> "vertical"
+            Horizontal -> "horizontal"
 
 
 

@@ -3,7 +3,7 @@ module Main exposing (main)
 import Browser
 import Http
 import Lynx exposing (view, text, textContent)
-import Lynx.Attributes exposing (fontSize, padding, color, flexDirection, alignItems)
+import Lynx.Attributes exposing (Alignment(..), FlexDirection(..), fontSize, padding, color, flexDirection, alignItems)
 import Lynx.Events exposing (onTap)
 
 
@@ -84,7 +84,7 @@ errorToString err =
 
 view_ : Model -> Lynx.Node Msg
 view_ model =
-    view [ padding 20, flexDirection "column", alignItems "center" ]
+    view [ padding 20, flexDirection Column, alignItems Center ]
         [ text [ fontSize 24, padding 10 ]
             [ textContent "HTTP Example" ]
         , view [ padding 10 ]

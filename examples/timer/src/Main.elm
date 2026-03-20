@@ -5,7 +5,7 @@ module Main exposing (main)
 
 import Browser
 import Lynx
-import Lynx.Attributes as Attr
+import Lynx.Attributes as Attr exposing (Alignment(..), FlexDirection(..), FontWeight(..))
 import Lynx.Events exposing (onTap)
 import Time
 import VirtualDom exposing (Node)
@@ -100,8 +100,8 @@ subscriptions model =
 view : Model -> Node Msg
 view model =
     Lynx.view
-        [ Attr.flexDirection "column"
-        , Attr.alignItems "center"
+        [ Attr.flexDirection Column
+        , Attr.alignItems Center
         , Attr.flex 1
         , Attr.backgroundColor "#1a1a2e"
         , Attr.paddingTop 40
@@ -109,14 +109,14 @@ view model =
         [ -- Timer display
           Lynx.text
             [ Attr.fontSize 64
-            , Attr.fontWeight "bold"
+            , Attr.fontWeight Bold
             , Attr.color "#e94560"
             ]
             [ Lynx.textContent (formatTime model.elapsed) ]
 
         -- Controls
         , Lynx.view
-            [ Attr.flexDirection "row"
+            [ Attr.flexDirection Row
             , Attr.marginTop 30
             ]
             [ -- Start/Stop
@@ -144,8 +144,8 @@ view model =
           else
             Lynx.view
                 [ Attr.marginTop 30
-                , Attr.flexDirection "column"
-                , Attr.alignItems "center"
+                , Attr.flexDirection Column
+                , Attr.alignItems Center
                 ]
                 [ Lynx.text
                     [ Attr.fontSize 18
@@ -153,7 +153,7 @@ view model =
                     , Attr.marginBottom 12
                     ]
                     [ Lynx.textContent "Laps" ]
-                , Lynx.view [ Attr.flexDirection "column" ]
+                , Lynx.view [ Attr.flexDirection Column ]
                     (List.indexedMap viewLap (List.reverse model.laps))
                 ]
         ]
@@ -175,7 +175,7 @@ timerButton bgColor msg label =
         [ Lynx.text
             [ Attr.color "#ffffff"
             , Attr.fontSize 18
-            , Attr.fontWeight "bold"
+            , Attr.fontWeight Bold
             ]
             [ Lynx.textContent label ]
         ]
@@ -184,7 +184,7 @@ timerButton bgColor msg label =
 viewLap : Int -> Int -> Node Msg
 viewLap index tenths =
     Lynx.view
-        [ Attr.flexDirection "row"
+        [ Attr.flexDirection Row
         , Attr.paddingTop 8
         , Attr.paddingBottom 8
         ]

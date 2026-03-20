@@ -6,7 +6,7 @@ Counter app with increment/decrement via tap events.
 
 import Browser
 import Lynx
-import Lynx.Attributes as Attr
+import Lynx.Attributes as Attr exposing (Alignment(..), FlexDirection(..))
 import Lynx.Events exposing (onTap)
 import VirtualDom exposing (Node)
 
@@ -65,14 +65,14 @@ update msg model =
 view : Model -> Node Msg
 view model =
     Lynx.view
-        [ Attr.flexDirection "column"
-        , Attr.alignItems "center"
-        , Attr.justifyContent "center"
+        [ Attr.flexDirection Column
+        , Attr.alignItems Center
+        , Attr.justifyContent Center
         , Attr.flex 1
         ]
         [ Lynx.view
-            [ Attr.flexDirection "row"
-            , Attr.alignItems "center"
+            [ Attr.flexDirection Row
+            , Attr.alignItems Center
             ]
             [ button Decrement "-"
             , Lynx.text

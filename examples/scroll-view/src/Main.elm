@@ -6,7 +6,7 @@ Demonstrates scrollView, list rendering, and layout patterns.
 
 import Browser
 import Lynx
-import Lynx.Attributes as Attr
+import Lynx.Attributes as Attr exposing (Alignment(..), FlexDirection(..), FontWeight(..), ScrollDirection(..))
 import Lynx.Events exposing (onTap)
 import VirtualDom exposing (Node)
 
@@ -76,7 +76,7 @@ update msg model =
 view : Model -> Node Msg
 view model =
     Lynx.view
-        [ Attr.flexDirection "column"
+        [ Attr.flexDirection Column
         , Attr.flex 1
         ]
         [ -- Header
@@ -89,7 +89,7 @@ view model =
             ]
             [ Lynx.text
                 [ Attr.fontSize 22
-                , Attr.fontWeight "bold"
+                , Attr.fontWeight Bold
                 , Attr.color "#ffffff"
                 ]
                 [ Lynx.textContent "Color Palette" ]
@@ -104,7 +104,7 @@ view model =
         -- Scrollable content
         , Lynx.scrollView
             [ Attr.flex 1
-            , Attr.scrollDirection "vertical"
+            , Attr.scrollDirection Vertical
             , Attr.padding 12
             ]
             (List.indexedMap (viewCard model.selected) colors)
@@ -116,8 +116,8 @@ view model =
             , Attr.paddingBottom 12
             , Attr.paddingLeft 20
             , Attr.paddingRight 20
-            , Attr.flexDirection "row"
-            , Attr.alignItems "center"
+            , Attr.flexDirection Row
+            , Attr.alignItems Center
             ]
             [ case model.selected of
                 Nothing ->
@@ -132,8 +132,8 @@ view model =
                                 |> Maybe.withDefault "#000000"
                     in
                     Lynx.view
-                        [ Attr.flexDirection "row"
-                        , Attr.alignItems "center"
+                        [ Attr.flexDirection Row
+                        , Attr.alignItems Center
                         ]
                         [ Lynx.view
                             [ Attr.width 20
@@ -158,8 +158,8 @@ viewCard selected idx colorHex =
     in
     Lynx.view
         [ onTap (Select idx)
-        , Attr.flexDirection "row"
-        , Attr.alignItems "center"
+        , Attr.flexDirection Row
+        , Attr.alignItems Center
         , Attr.marginBottom 8
         , Attr.borderRadius 12
         , Attr.backgroundColor "#ffffff"
@@ -184,7 +184,7 @@ viewCard selected idx colorHex =
         , Lynx.view [ Attr.flex 1 ]
             [ Lynx.text
                 [ Attr.fontSize 16
-                , Attr.fontWeight "bold"
+                , Attr.fontWeight Bold
                 , Attr.color "#2C3E50"
                 ]
                 [ Lynx.textContent ("Color #" ++ String.fromInt (idx + 1)) ]
