@@ -42,6 +42,12 @@ examples/         # Demo apps (counter, hello-world, http-example)
 
 The compiler embeds forked versions of `elm/virtual-dom`, `elm/browser`, `elm/http`, and the custom `lynxjs-elm/ui` package directly into the binary. When a project depends on these, the compiler installs them from embedded content instead of fetching from the package registry. The `lynxjs-elm/ui` package is also injected into the package registry so the dependency solver can resolve it.
 
+- [`lynxjs-elm/ui`](packages/ui/README.md) — Native element constructors, attributes, and events
+- [`lynxjs-elm/browser`](packages/browser/README.md) — Application lifecycle (sandbox, element, document)
+- [`lynxjs-elm/http`](packages/http/README.md) — Fetch-based HTTP requests
+- [`lynxjs-elm/virtual-dom`](packages/virtual-dom/README.md) — Low-level virtual DOM with LynxJS PAPI
+- [`lynxjs-elm/crypto`](packages/crypto/README.md) — Elliptic curves and AEAD ciphers
+
 Upstream repos: [github.com/lynxjs-elm](https://github.com/lynxjs-elm)
 
 ## Examples
