@@ -114,6 +114,8 @@ run path (Flags maybePort verbose) =
                           putStrLn ""
 
                     -- Watch for changes, recompile, and rebuild
+                    putStrLn "  Watching for changes..."
+                    putStrLn ""
                     let cleanup = do  Process.terminateProcess serveHandle
                                       _ <- Process.waitForProcess serveHandle
                                       return ()
@@ -296,7 +298,9 @@ printQrCode bundlerDir url =
       exitCode <- Process.waitForProcess ph
       case exitCode of
         SysExit.ExitSuccess -> return ()
-        SysExit.ExitFailure _ -> return ()  -- silently skip if not available
+        SysExit.ExitFailure _ ->
+          do  putStrLn "  Scan the URL above in LynxJS Explorer to preview."
+              putStrLn ""
 
 
 

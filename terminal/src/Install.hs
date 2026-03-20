@@ -18,6 +18,7 @@ import qualified Elm.Details as Details
 import qualified Elm.Package as Pkg
 import qualified Elm.Outline as Outline
 import qualified Elm.Version as V
+import qualified Lynx.Patches as Patches
 import qualified Reporting
 import Reporting.Doc ((<+>))
 import qualified Reporting.Doc as D
@@ -50,17 +51,22 @@ run args () =
                     return (Left (Exit.InstallNoArgs elmHome))
 
               Install pkg ->
-                Task.run $
-                  do  env <- Task.eio Exit.InstallBadRegistry $ Solver.initEnv
-                      oldOutline <- Task.eio Exit.InstallBadOutline $ Outline.read root
-                      case oldOutline of
-                        Outline.App outline ->
-                          do  changes <- makeAppPlan env pkg outline
-                              attemptChanges root env oldOutline V.toChars changes
+                case Patches.forkSuggestion pkg of
+                  Just forkPkg ->
+                    return (Left (Exit.InstallForkSuggestion pkg forkPkg))
 
-                        Outline.Pkg outline ->
-                          do  changes <- makePkgPlan env pkg outline
-                              attemptChanges root env oldOutline C.toChars changes
+                  Nothing ->
+                    Task.run $
+                      do  env <- Task.eio Exit.InstallBadRegistry $ Solver.initEnv
+                          oldOutline <- Task.eio Exit.InstallBadOutline $ Outline.read root
+                          case oldOutline of
+                            Outline.App outline ->
+                              do  changes <- makeAppPlan env pkg outline
+                                  attemptChanges root env oldOutline V.toChars changes
+
+                            Outline.Pkg outline ->
+                              do  changes <- makePkgPlan env pkg outline
+                                  attemptChanges root env oldOutline C.toChars changes
 
 
 

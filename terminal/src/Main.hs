@@ -15,6 +15,7 @@ import Terminal
 import Terminal.Helpers
 
 import qualified Bump
+import qualified Clean
 import qualified Dev
 import qualified Develop
 import qualified Diff
@@ -40,6 +41,7 @@ main =
     , make
     , install
     , uninstall
+    , clean
     , bump
     , diff
     , publish
@@ -285,6 +287,29 @@ uninstall =
         ]
   in
   Terminal.Command "uninstall" Uncommon details example (required package) noFlags Uninstall.run
+
+
+
+-- CLEAN
+
+
+clean :: Terminal.Command
+clean =
+  let
+    summary =
+      "Remove cached build artifacts. This clears elm-stuff/ in the current\
+      \ project and the shared bundler cache."
+
+    details =
+      "The `clean` command removes cached build artifacts:"
+
+    example =
+      reflow
+        "This is useful when you hit strange build errors or want a fresh start.\
+        \ It removes elm-stuff/ from your project and the bundler cache. Your\
+        \ source code and elm.json are not touched."
+  in
+  Terminal.Command "clean" (Common summary) details example noArgs noFlags Clean.run
 
 
 

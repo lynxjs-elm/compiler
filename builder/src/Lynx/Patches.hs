@@ -3,6 +3,7 @@ module Lynx.Patches
   ( installFork
   , installAllForks
   , isFork
+  , forkSuggestion
   , injectRegistry
   , forkContentHash
   )
@@ -96,6 +97,22 @@ forkContentHash =
 isFork :: Pkg.Name -> Bool
 isFork pkg =
   pkg == Pkg.virtualDom || pkg == Pkg.browser || pkg == Pkg.http || pkg == Pkg.ui || pkg == Pkg.crypto
+
+
+-- FORK SUGGESTION
+--
+-- When a user tries to install elm/browser, elm/virtual-dom, or elm/http,
+-- suggest the lynxjs-elm fork instead.
+
+
+forkSuggestion :: Pkg.Name -> Maybe Pkg.Name
+forkSuggestion pkg
+  | chars == "elm/virtual-dom" = Just Pkg.virtualDom
+  | chars == "elm/browser"     = Just Pkg.browser
+  | chars == "elm/http"        = Just Pkg.http
+  | otherwise                  = Nothing
+  where
+    chars = Pkg.toChars pkg
 
 
 

@@ -746,6 +746,7 @@ data Install
   | InstallHadSolverTrouble Solver
   | InstallUnknownPackageOnline Pkg.Name [Pkg.Name]
   | InstallUnknownPackageOffline Pkg.Name [Pkg.Name]
+  | InstallForkSuggestion Pkg.Name Pkg.Name
   | InstallBadDetails Details
 
 
@@ -888,6 +889,19 @@ installToReport exit =
             "Looking through the locally cached names, the closest ones are:"
         , D.indent 4 $ D.dullyellow $ D.vcat $ map D.fromPackage suggestions
         , D.reflow $ "Maybe you want one of these instead?"
+        ]
+
+    InstallForkSuggestion pkg forkPkg ->
+      Help.docReport "FORKED PACKAGE" Nothing
+        (
+          D.fillSep
+            ["The","package",D.red (D.fromPackage pkg),"has","been","replaced"
+            ,"by",D.green (D.fromPackage forkPkg),"for","LynxJS."
+            ]
+        )
+        [ D.reflow "Try this instead:"
+        , D.indent 4 $ D.green $ D.fromChars $
+            "lynxjs-elm install " ++ Pkg.toChars forkPkg
         ]
 
     InstallBadDetails details ->

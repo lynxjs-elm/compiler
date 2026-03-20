@@ -53,6 +53,7 @@ Executable lynxjs-elm
 
     other-modules:
         Bump
+        Clean
         Dev
         Develop
         Diff
