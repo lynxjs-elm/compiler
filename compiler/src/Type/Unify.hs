@@ -369,53 +369,34 @@ isNumber home name =
 
 unifyFlexSuperStructure :: Context -> SuperType -> FlatType -> Unify ()
 unifyFlexSuperStructure context super flatType =
-  case flatType of
-    App1 home name [] ->
-      if atomMatchesSuper super home name then
-        merge context (Structure flatType)
-      else
-        mismatch
-
-    App1 home name [variable] | home == ModuleName.list && name == Name.list ->
-      case super of
-        Number ->
-            mismatch
-
-        Appendable ->
-            merge context (Structure flatType)
-
-        Comparable ->
-            do  comparableOccursCheck context
-                unifyComparableRecursive variable
-                merge context (Structure flatType)
-
-        CompAppend ->
-            do  comparableOccursCheck context
-                unifyComparableRecursive variable
-                merge context (Structure flatType)
-
-    Tuple1 a b maybeC ->
-      case super of
-        Number ->
-            mismatch
-
-        Appendable ->
-            mismatch
-
-        Comparable ->
-            do  comparableOccursCheck context
-                unifyComparableRecursive a
-                unifyComparableRecursive b
-                case maybeC of
-                  Nothing -> return ()
-                  Just c  -> unifyComparableRecursive c
-                merge context (Structure flatType)
-
-        CompAppend ->
-            mismatch
+  case super of
+    -- Any type can be used as comparable (e.g. Dict keys, Set members).
+    -- Structural comparison is provided at runtime for all Elm values.
+    Comparable ->
+      merge context (Structure flatType)
 
     _ ->
-      mismatch
+      case flatType of
+        App1 home name [] ->
+          if atomMatchesSuper super home name then
+            merge context (Structure flatType)
+          else
+            mismatch
+
+        App1 home name [variable] | home == ModuleName.list && name == Name.list ->
+          case super of
+            Number     -> mismatch
+            Appendable -> merge context (Structure flatType)
+            _          ->
+                do  comparableOccursCheck context
+                    unifyComparableRecursive variable
+                    merge context (Structure flatType)
+
+        Tuple1 _ _ _ ->
+          mismatch
+
+        _ ->
+          mismatch
 
 
 -- TODO: is there some way to avoid doing this?

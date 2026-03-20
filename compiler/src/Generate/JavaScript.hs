@@ -162,13 +162,50 @@ emptyState =
 
 stateToBuilder :: State -> B.Builder
 stateToBuilder (State revKernels revBuilders _) =
-  prependBuilders revKernels (prependBuilders revBuilders mempty)
+  prependBuilders revKernels (extendedUtilsCmp <> prependBuilders revBuilders mempty)
 
 
 prependBuilders :: [B.Builder] -> B.Builder -> B.Builder
 prependBuilders revBuilders monolith =
   List.foldl' (\m b -> b <> m) monolith revBuilders
 
+
+-- EXTENDED COMPARISON
+--
+-- Override _Utils_cmp from elm/core to support structural comparison
+-- of all Elm values (custom types, records, etc.), not just the types
+-- that satisfy the standard `comparable` constraint.
+-- Placed after kernel code so it overwrites the original definition.
+
+
+extendedUtilsCmp :: B.Builder
+extendedUtilsCmp =
+  "function _Utils_cmp(x, y, ord) {\
+  \if (typeof x !== 'object') {\
+    \return x === y ? 0 : x < y ? -1 : 1; }\
+  \if (x instanceof String) {\
+    \var a = x.valueOf(); var b = y.valueOf();\
+    \return a === b ? 0 : a < b ? -1 : 1; }\
+  \if (typeof x.$ === 'undefined' || (typeof x.$ === 'string' && x.$[0] === '#')) {\
+    \var keys = Object.keys(x).sort();\
+    \for (var i = 0; i < keys.length; i++) {\
+      \var k = keys[i];\
+      \if (k === '$') continue;\
+      \ord = _Utils_cmp(x[k], y[k]);\
+      \if (ord) return ord; }\
+    \return 0; }\
+  \if (x.$ === '::' || x.$ === '[]') {\
+    \for (; x.b && y.b && !(ord = _Utils_cmp(x.a, y.a)); x = x.b, y = y.b) {}\
+    \return ord || (x.b ? 1 : y.b ? -1 : 0); }\
+  \if (x.$ !== y.$) {\
+    \return x.$ < y.$ ? -1 : 1; }\
+  \var keys = Object.keys(x);\
+  \for (var i = 0; i < keys.length; i++) {\
+    \var k = keys[i];\
+    \if (k === '$') continue;\
+    \ord = _Utils_cmp(x[k], y[k]);\
+    \if (ord) return ord; }\
+  \return 0; }\n"
 
 
 -- ADD DEPENDENCIES
