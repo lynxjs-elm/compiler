@@ -23,6 +23,7 @@ import qualified Install
 import qualified Make
 import qualified Publish
 import qualified Repl
+import qualified Uninstall
 
 
 
@@ -38,6 +39,7 @@ main =
     , dev
     , make
     , install
+    , uninstall
     , bump
     , diff
     , publish
@@ -77,16 +79,17 @@ init :: Terminal.Command
 init =
   let
     summary =
-      "Start an Elm project. It creates a starter elm.json file and\
-      \ provides a link explaining what to do from there."
+      "Start a LynxJS Elm project. It creates an elm.json file with LynxJS\
+      \ dependencies and a starter src/Main.elm with a counter app."
 
     details =
-      "The `init` command helps start Elm projects:"
+      "The `init` command helps start LynxJS Elm projects:"
 
     example =
       reflow
-        "It will ask permission to create an elm.json file, the one thing common\
-        \ to all Elm projects. It also provides a link explaining what to do from there."
+        "It will ask permission to create an elm.json file and a starter src/Main.elm\
+        \ file. The project will include lynxjs-elm/ui and lynxjs-elm/browser as\
+        \ dependencies so you can start building native UIs right away."
   in
   Terminal.Command "init" (Common summary) details example noArgs noFlags Init.run
 
@@ -178,10 +181,10 @@ dev =
   let
     summary =
       "Start a LynxJS dev server with live reloading. It compiles your Elm code,\
-      \ bundles it with Rspeedy, and watches for changes."
+      \ bundles it with rspack, and watches for changes."
 
     details =
-      "The `dev` command starts an Rspeedy dev server for LynxJS:"
+      "The `dev` command starts a dev server for LynxJS:"
 
     example =
       reflow
@@ -192,6 +195,7 @@ dev =
     devFlags =
       flags Dev.Flags
         |-- flag "port" port_ "The port of the dev server (default: 3000)"
+        |-- onOff "verbose" "Show detailed output from npm and rspack during builds."
   in
   Terminal.Command "dev" (Common summary) details example (required elmFile) devFlags Dev.run
 
@@ -210,10 +214,10 @@ make =
       stack
         [ reflow
             "For example:"
-        , P.indent 4 $ P.green "elm make src/Main.elm"
+        , P.indent 4 $ P.green "lynxjs-elm make src/Main.elm"
         , reflow
-            "This tries to compile an Elm file named src/Main.elm, generating an index.html\
-            \ file if possible."
+            "This tries to compile an Elm file named src/Main.elm, generating a\
+            \ main.lynx.bundle file by default."
         ]
 
     makeFlags =
@@ -223,6 +227,7 @@ make =
         |-- flag "output" Make.output "Specify the name of the resulting JS file. For example --output=assets/elm.js to generate the JS at assets/elm.js or --output=/dev/null to generate no output at all!"
         |-- flag "report" Make.reportType "You can say --report=json to get error messages as JSON. This is only really useful if you are an editor plugin. Humans should avoid it!"
         |-- flag "docs" Make.docsFile "Generate a JSON file of documentation for a package. Eventually it will be possible to preview docs with `reactor` because it is quite hard to deal with these JSON files directly."
+        |-- onOff "verbose" "Show detailed output from npm and rspack during bundling."
   in
   Terminal.Command "make" Uncommon details example (zeroOrMore elmFile) makeFlags Make.run
 
@@ -235,23 +240,19 @@ install :: Terminal.Command
 install =
   let
     details =
-      "The `install` command fetches packages from <https://package.elm-lang.org> for\
-      \ use in your project:"
+      "The `install` command fetches packages for use in your project:"
 
     example =
       stack
         [ reflow
             "For example, if you want to get packages for HTTP and JSON, you would say:"
         , P.indent 4 $ P.green $ P.vcat $
-              [ "elm install elm/http"
-              , "elm install elm/json"
+              [ "lynxjs-elm install lynxjs-elm/http"
+              , "lynxjs-elm install elm/json"
               ]
         , reflow
             "Notice that you must say the AUTHOR name and PROJECT name! After running those\
             \ commands, you could say `import Http` or `import Json.Decode` in your code."
-        , reflow
-            "What if two projects use different versions of the same package? No problem!\
-            \ Each project is independent, so there cannot be conflicts like that!"
         ]
 
     installArgs =
@@ -261,6 +262,29 @@ install =
         ]
   in
   Terminal.Command "install" Uncommon details example installArgs noFlags Install.run
+
+
+
+-- UNINSTALL
+
+
+uninstall :: Terminal.Command
+uninstall =
+  let
+    details =
+      "The `uninstall` command removes packages from your project:"
+
+    example =
+      stack
+        [ reflow
+            "For example, if you want to remove a package, you would say:"
+        , P.indent 4 $ P.green "lynxjs-elm uninstall elm/http"
+        , reflow
+            "I will remove it from your elm.json and verify that everything\
+            \ still compiles without it."
+        ]
+  in
+  Terminal.Command "uninstall" Uncommon details example (required package) noFlags Uninstall.run
 
 
 

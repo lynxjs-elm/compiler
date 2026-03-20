@@ -1,4 +1,4 @@
-{-# LANGUAGE OverloadedStrings #-}
+{-# LANGUAGE OverloadedStrings, ScopedTypeVariables #-}
 module Dev
   ( Flags(..)
   , run
@@ -7,15 +7,16 @@ module Dev
 
 
 import Control.Concurrent (threadDelay)
-import Control.Exception (finally)
-import Control.Monad (when)
+import Control.Exception (finally, catch, IOException)
+import Control.Monad (when, unless)
 import qualified Data.List as List
 import qualified Data.NonEmptyList as NE
 import qualified Data.Time.Clock.POSIX as Time
 import qualified System.Directory as Dir
 import qualified System.Exit as SysExit
 import System.FilePath ((</>), takeExtension, takeFileName)
-import System.IO (hSetBuffering, stdout, BufferMode(..))
+import qualified System.Info as Info
+import System.IO (hSetBuffering, stdout, BufferMode(..), hFlush, hPutStr, hGetContents)
 import qualified System.Process as Process
 
 import qualified BackgroundWriter as BW
@@ -36,6 +37,7 @@ import qualified Stuff
 data Flags =
   Flags
     { _port :: Maybe Int
+    , _verbose :: Bool
     }
 
 
@@ -44,7 +46,7 @@ data Flags =
 
 
 run :: FilePath -> Flags -> IO ()
-run path (Flags maybePort) =
+run path (Flags maybePort verbose) =
   do  hSetBuffering stdout LineBuffering
       maybeRoot <- Stuff.findRoot
       case maybeRoot of
@@ -65,18 +67,23 @@ run path (Flags maybePort) =
 
               -- Initial compile
               putStrLn "Compiling..."
+              startTime <- Time.getPOSIXTime
               ok <- compileAndWrite root path elmOutput
               when ok $
-                do  -- Install deps if needed
+                do  endTime <- Time.getPOSIXTime
+                    let elapsed = realToFrac (endTime - startTime) :: Double
+                    putStrFlush $ "  (" ++ showTime elapsed ++ ")\n"
+
+                    -- Install deps if needed
                     let rspackDir = nodeModules </> "@rspack" </> "cli"
                     hasCorrectDeps <- Dir.doesDirectoryExist rspackDir
-                    when (not hasCorrectDeps) $
+                    unless hasCorrectDeps $
                       do  putStrLn "Installing bundler dependencies..."
-                          callIn bundlerDir "npm" ["install"]
+                          callIn bundlerDir "npm" ["install"] verbose
 
                     -- Assemble all.js and build bundle
                     putStrLn "Bundling..."
-                    assembleAndBuild bundlerDir
+                    assembleAndBuild bundlerDir verbose
 
                     -- Start static file server in background
                     let distDir = bundlerDir </> "dist"
@@ -89,17 +96,29 @@ run path (Flags maybePort) =
 
                     -- Print bundle URL
                     ip <- getLocalIp
+                    let url = "http://" ++ ip ++ ":" ++ show port ++ "/main.lynx.bundle"
                     putStrLn ""
                     putStrLn $ "  LynxJS Explorer URL:"
-                    putStrLn $ "  http://" ++ ip ++ ":" ++ show port ++ "/main.lynx.bundle"
+                    putStrLn $ "  " ++ url
                     putStrLn ""
+
+                    -- Print QR code
+                    printQrCode bundlerDir url
+
+                    -- Report bundle size
+                    let bundlePath = distDir </> "main.lynx.bundle"
+                    bundleExists <- Dir.doesFileExist bundlePath
+                    when bundleExists $
+                      do  size <- Dir.getFileSize bundlePath
+                          putStrLn $ "  Bundle size: " ++ formatSize size
+                          putStrLn ""
 
                     -- Watch for changes, recompile, and rebuild
                     let cleanup = do  Process.terminateProcess serveHandle
                                       _ <- Process.waitForProcess serveHandle
                                       return ()
                     finally
-                      (watchAndRebuild root path elmOutput bundlerDir)
+                      (watchAndRebuild root path elmOutput bundlerDir verbose)
                       cleanup
 
 
@@ -129,18 +148,18 @@ compileAndWrite root path elmOutput =
 -- WATCH
 
 
-assembleAndBuild :: FilePath -> IO ()
-assembleAndBuild bundlerDir =
+assembleAndBuild :: FilePath -> Bool -> IO ()
+assembleAndBuild bundlerDir verbose =
   do  let srcDir = bundlerDir </> "src"
       stubs <- readFile (srcDir </> "stubs.js")
       elm <- readFile (srcDir </> "elm.js")
       initCode <- readFile (srcDir </> "init.js")
       writeFile (srcDir </> "all.js") (stubs ++ elm ++ initCode)
-      callIn bundlerDir "npx" ["rspack", "build"]
+      callIn bundlerDir "npx" ["rspack", "build"] verbose
 
 
-watchAndRebuild :: FilePath -> FilePath -> FilePath -> FilePath -> IO ()
-watchAndRebuild root path elmOutput bundlerDir =
+watchAndRebuild :: FilePath -> FilePath -> FilePath -> FilePath -> Bool -> IO ()
+watchAndRebuild root path elmOutput bundlerDir verbose =
   do  mtime <- getMaxMtime root
       loop mtime
   where
@@ -149,10 +168,21 @@ watchAndRebuild root path elmOutput bundlerDir =
           mtime <- getMaxMtime root
           when (mtime /= lastMtime) $
             do  putStrLn "\nRecompiling..."
+                startTime <- Time.getPOSIXTime
                 ok <- compileAndWrite root path elmOutput
                 when ok $
-                  do  putStrLn "Bundling..."
-                      assembleAndBuild bundlerDir
+                  do  endTime <- Time.getPOSIXTime
+                      let elapsed = realToFrac (endTime - startTime) :: Double
+                      putStrFlush $ "  (" ++ showTime elapsed ++ ")\n"
+                      putStrLn "Bundling..."
+                      assembleAndBuild bundlerDir verbose
+
+                      -- Report bundle size
+                      let bundlePath = bundlerDir </> "dist" </> "main.lynx.bundle"
+                      bundleExists <- Dir.doesFileExist bundlePath
+                      when bundleExists $
+                        do  size <- Dir.getFileSize bundlePath
+                            putStrLn $ "  Bundle size: " ++ formatSize size
           loop mtime
 
 
@@ -204,22 +234,104 @@ setupBundlerProject dir _port =
 
 getLocalIp :: IO String
 getLocalIp =
-  do  let proc = Process.proc "ipconfig" ["getifaddr", "en0"]
-      result <- Process.readCreateProcess proc ""
-      case lines result of
-        (ip:_) -> return ip
-        _      -> return "localhost"
+  tryGetIp `catch` (\(_ :: IOException) -> return "localhost")
+  where
+    tryGetIp =
+      case Info.os of
+        "darwin" ->
+          do  let proc = Process.proc "ipconfig" ["getifaddr", "en0"]
+              result <- Process.readCreateProcess proc ""
+              case words result of
+                (ip:_) -> return ip
+                _      -> return "localhost"
+
+        "linux" ->
+          do  let proc = Process.proc "hostname" ["-I"]
+              result <- Process.readCreateProcess proc ""
+              case words result of
+                (ip:_) -> return ip
+                _      -> return "localhost"
+
+        _ ->
+          return "localhost"
 
 
-callIn :: FilePath -> String -> [String] -> IO ()
-callIn dir cmd cmdArgs =
-  do  let proc = (Process.proc cmd cmdArgs) { Process.cwd = Just dir }
-      (_, _, _, ph) <- Process.createProcess proc
+callIn :: FilePath -> String -> [String] -> Bool -> IO ()
+callIn dir cmd cmdArgs verbose =
+  do  let outStream = if verbose then Process.Inherit else Process.NoStream
+      let proc = (Process.proc cmd cmdArgs)
+                    { Process.cwd = Just dir
+                    , Process.std_out = outStream
+                    , Process.std_err = Process.CreatePipe
+                    }
+      (_, _, mStderr, ph) <- Process.createProcess proc
       exitCode <- Process.waitForProcess ph
       case exitCode of
         SysExit.ExitSuccess -> return ()
         SysExit.ExitFailure code ->
-          error $ cmd ++ " failed with exit code " ++ show code
+          do  case mStderr of
+                Just h ->
+                  do  errOutput <- readAll h
+                      unless (null errOutput) $
+                        do  putStrLn $ "\n-- " ++ cmd ++ " ERROR " ++ replicate 60 '-'
+                            putStrLn errOutput
+                Nothing -> return ()
+              error $ cmd ++ " failed with exit code " ++ show code
+  where
+    readAll h =
+      do  content <- hGetContents h
+          length content `seq` return content
+
+
+-- QR CODE
+
+
+printQrCode :: FilePath -> String -> IO ()
+printQrCode bundlerDir url =
+  do  let proc = (Process.proc "npx" ["qrcode-terminal", url])
+                    { Process.cwd = Just bundlerDir
+                    , Process.std_err = Process.NoStream
+                    }
+      (_, _, _, ph) <- Process.createProcess proc
+      exitCode <- Process.waitForProcess ph
+      case exitCode of
+        SysExit.ExitSuccess -> return ()
+        SysExit.ExitFailure _ -> return ()  -- silently skip if not available
+
+
+
+-- HELPERS
+
+
+showTime :: Double -> String
+showTime seconds
+  | seconds < 1.0  = show (round (seconds * 1000) :: Int) ++ "ms"
+  | otherwise       = showFFloat 2 seconds ++ "s"
+  where
+    showFFloat n x =
+      let whole = floor x :: Int
+          frac = round ((x - fromIntegral whole) * (10 ^ n)) :: Int
+          fracStr = show frac
+          padded = replicate (n - length fracStr) '0' ++ fracStr
+      in show whole ++ "." ++ padded
+
+
+formatSize :: Integer -> String
+formatSize bytes
+  | bytes < 1024       = show bytes ++ " B"
+  | bytes < 1048576    = showF (fromIntegral bytes / 1024) ++ " KB"
+  | otherwise           = showF (fromIntegral bytes / 1048576) ++ " MB"
+  where
+    showF :: Double -> String
+    showF x =
+      let whole = floor x :: Int
+          frac = round ((x - fromIntegral whole) * 10) :: Int
+      in if frac == 0 then show whole else show whole ++ "." ++ show frac
+
+
+putStrFlush :: String -> IO ()
+putStrFlush str =
+  hPutStr stdout str >> hFlush stdout
 
 
 packageJson :: String
@@ -231,7 +343,8 @@ packageJson = unlines
   , "  \"dependencies\": {"
   , "    \"@lynx-js/template-webpack-plugin\": \"0.6.4\","
   , "    \"@rspack/cli\": \"^1.7.0\","
-  , "    \"@rspack/core\": \"^1.7.0\""
+  , "    \"@rspack/core\": \"^1.7.0\","
+  , "    \"qrcode-terminal\": \"^0.12.0\""
   , "  }"
   , "}"
   ]

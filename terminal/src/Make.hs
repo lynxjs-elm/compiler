@@ -11,14 +11,16 @@ module Make
   where
 
 
-import Control.Monad (when)
+import Control.Monad (unless)
 import qualified Data.ByteString.Builder as B
 import qualified Data.Maybe as Maybe
 import qualified Data.NonEmptyList as NE
+import qualified Data.Time.Clock.POSIX as Time
 import qualified System.Directory as Dir
 import qualified System.FilePath as FP
 import System.FilePath ((</>))
 import qualified System.Exit as SysExit
+import System.IO (hGetContents)
 import qualified System.Process as Process
 
 import qualified AST.Optimized as Opt
@@ -47,6 +49,7 @@ data Flags =
     , _output :: Maybe Output
     , _report :: Maybe ReportType
     , _docs :: Maybe FilePath
+    , _verbose :: Bool
     }
 
 
@@ -69,7 +72,7 @@ type Task a = Task.Task Exit.Make a
 
 
 run :: [FilePath] -> Flags -> IO ()
-run paths flags@(Flags _ _ _ report _) =
+run paths flags@(Flags _ _ _ report _ _) =
   do  style <- getStyle report
       maybeRoot <- Stuff.findRoot
       Reporting.attemptWithStyle style Exit.makeToReport $
@@ -79,7 +82,7 @@ run paths flags@(Flags _ _ _ report _) =
 
 
 runHelp :: FilePath -> [FilePath] -> Reporting.Style -> Flags -> IO (Either Exit.Make ())
-runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs) =
+runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs verbose) =
   BW.withScope $ \scope ->
   Stuff.withRootLock root $ Task.run $
   do  desiredMode <- getMode debug optimize
@@ -100,7 +103,7 @@ runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs) =
                     _ ->
                       do  _name <- hasOneMain artifacts
                           builder <- toBuilder root details desiredMode artifacts
-                          Task.io $ bundle style "main.lynx.bundle" builder (Build.getRootNames artifacts)
+                          Task.io $ bundle style "main.lynx.bundle" builder (Build.getRootNames artifacts) verbose
 
                 Just DevNull ->
                   return ()
@@ -122,7 +125,7 @@ runHelp root paths style (Flags debug optimize maybeOutput _ maybeDocs) =
                 Just (Bundle target) ->
                   do  _name <- hasOneMain artifacts
                       builder <- toBuilder root details desiredMode artifacts
-                      Task.io $ bundle style target builder (Build.getRootNames artifacts)
+                      Task.io $ bundle style target builder (Build.getRootNames artifacts) verbose
 
 
 
@@ -336,9 +339,10 @@ isDevNull name =
 -- BUNDLE
 
 
-bundle :: Reporting.Style -> FilePath -> B.Builder -> NE.List ModuleName.Raw -> IO ()
-bundle style target js names =
-  do  home <- Stuff.getElmHome
+bundle :: Reporting.Style -> FilePath -> B.Builder -> NE.List ModuleName.Raw -> Bool -> IO ()
+bundle style target js names verbose =
+  do  startTime <- Time.getPOSIXTime
+      home <- Stuff.getElmHome
       let bundlerDir = home </> "bundler"
       let srcDir = bundlerDir </> "src"
       let elmFile = srcDir </> "elm.js"
@@ -354,29 +358,35 @@ bundle style target js names =
       -- Install deps if needed
       let rspackDir = nodeModules </> "@rspack" </> "cli"
       hasCorrectDeps <- Dir.doesDirectoryExist rspackDir
-      when (not hasCorrectDeps) $
+      unless hasCorrectDeps $
         do  putStrLn "Installing bundler dependencies..."
-            callIn bundlerDir "npm" ["install"]
+            callIn bundlerDir "npm" ["install"] verbose
 
       -- Assemble all.js and build bundle
       putStrLn "Bundling..."
-      assembleAndBuild bundlerDir
+      assembleAndBuild bundlerDir verbose
 
       -- Copy the output bundle
       let distBundle = bundlerDir </> "dist" </> "main.lynx.bundle"
       Dir.createDirectoryIfMissing True (FP.takeDirectory target)
       Dir.copyFile distBundle target
+
+      -- Report timing and size
+      endTime <- Time.getPOSIXTime
+      let elapsed = realToFrac (endTime - startTime) :: Double
+      size <- Dir.getFileSize target
       Reporting.reportGenerate style names target
+      putStrLn $ "  Bundled in " ++ showTime elapsed ++ " (" ++ formatSize size ++ ")"
 
 
-assembleAndBuild :: FilePath -> IO ()
-assembleAndBuild bundlerDir =
+assembleAndBuild :: FilePath -> Bool -> IO ()
+assembleAndBuild bundlerDir verbose =
   do  let srcDir = bundlerDir </> "src"
       stubs <- readFile (srcDir </> "stubs.js")
       elm <- readFile (srcDir </> "elm.js")
       initCode <- readFile (srcDir </> "init.js")
       writeFile (srcDir </> "all.js") (stubs ++ elm ++ initCode)
-      callIn bundlerDir "npx" ["rspack", "build"]
+      callIn bundlerDir "npx" ["rspack", "build"] verbose
 
 
 setupBundlerProject :: FilePath -> IO ()
@@ -391,15 +401,61 @@ setupBundlerProject dir =
       writeFile initFile initJs
 
 
-callIn :: FilePath -> String -> [String] -> IO ()
-callIn dir cmd args =
-  do  let proc = (Process.proc cmd args) { Process.cwd = Just dir }
-      (_, _, _, ph) <- Process.createProcess proc
+callIn :: FilePath -> String -> [String] -> Bool -> IO ()
+callIn dir cmd args verbose =
+  do  let outStream = if verbose then Process.Inherit else Process.NoStream
+      let proc = (Process.proc cmd args)
+                    { Process.cwd = Just dir
+                    , Process.std_out = outStream
+                    , Process.std_err = Process.CreatePipe
+                    }
+      (_, _, mStderr, ph) <- Process.createProcess proc
       exitCode <- Process.waitForProcess ph
       case exitCode of
         SysExit.ExitSuccess -> return ()
         SysExit.ExitFailure code ->
-          error $ cmd ++ " failed with exit code " ++ show code
+          do  case mStderr of
+                Just h ->
+                  do  errOutput <- readAll h
+                      unless (null errOutput) $
+                        do  putStrLn $ "\n-- " ++ cmd ++ " ERROR " ++ replicate 60 '-'
+                            putStrLn errOutput
+                Nothing -> return ()
+              error $ cmd ++ " failed with exit code " ++ show code
+  where
+    readAll h =
+      do  content <- hGetContents h
+          length content `seq` return content
+
+
+
+-- HELPERS
+
+
+showTime :: Double -> String
+showTime seconds
+  | seconds < 1.0  = show (round (seconds * 1000) :: Int) ++ "ms"
+  | otherwise       = showFFloat 2 seconds ++ "s"
+  where
+    showFFloat n x =
+      let whole = floor x :: Int
+          frac = round ((x - fromIntegral whole) * (10 ^ n)) :: Int
+          fracStr = show frac
+          padded = replicate (n - length fracStr) '0' ++ fracStr
+      in show whole ++ "." ++ padded
+
+
+formatSize :: Integer -> String
+formatSize bytes
+  | bytes < 1024       = show bytes ++ " B"
+  | bytes < 1048576    = showF (fromIntegral bytes / 1024) ++ " KB"
+  | otherwise           = showF (fromIntegral bytes / 1048576) ++ " MB"
+  where
+    showF :: Double -> String
+    showF x =
+      let whole = floor x :: Int
+          frac = round ((x - fromIntegral whole) * 10) :: Int
+      in if frac == 0 then show whole else show whole ++ "." ++ show frac
 
 
 packageJson :: String

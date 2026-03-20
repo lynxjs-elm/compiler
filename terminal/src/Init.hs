@@ -44,18 +44,14 @@ question =
   D.stack
     [ D.fillSep
         ["Hello!"
-        ,"Elm","projects","always","start","with","an",D.green "elm.json","file."
+        ,"LynxJS","Elm","projects","start","with","an",D.green "elm.json","file"
+        ,"and","a","starter",D.green "src/Main.elm" <> "."
         ,"I","can","create","them!"
         ]
     , D.reflow
-        "Now you may be wondering, what will be in this file? How do I add Elm files to\
-        \ my project? How do I see it in the browser? How will my code grow? Do I need\
-        \ more directories? What about tests? Etc."
-    , D.fillSep
-        ["Check","out",D.cyan (D.fromChars (D.makeLink "init"))
-        ,"for","all","the","answers!"
-        ]
-    , "Knowing all that, would you like me to create an elm.json file now? [Y/n]: "
+        "The project will include lynxjs-elm/ui and lynxjs-elm/browser as dependencies,\
+        \ plus a simple counter app to get you started."
+    , "Would you like me to create a new LynxJS Elm project here? [Y/n]: "
     ]
 
 
@@ -91,7 +87,17 @@ init =
                   do  Dir.createDirectoryIfMissing True "src"
                       Outline.write "." $ Outline.App $
                         Outline.AppOutline V.compiler (NE.List (Outline.RelativeSrcDir "src") []) directs indirects Map.empty Map.empty
-                      putStrLn "Okay, I created it. Now read that link!"
+                      let mainElm = "src/Main.elm"
+                      mainExists <- Dir.doesFileExist mainElm
+                      if mainExists
+                        then return ()
+                        else writeFile mainElm starterMain
+                      putStrLn ""
+                      putStrLn "  Created elm.json and src/Main.elm"
+                      putStrLn ""
+                      putStrLn "  To build:  lynxjs-elm make src/Main.elm"
+                      putStrLn "  To dev:    lynxjs-elm dev src/Main.elm"
+                      putStrLn ""
                       return (Right ())
 
 
@@ -100,5 +106,117 @@ defaults =
   Map.fromList
     [ (Pkg.core, Con.anything)
     , (Pkg.browser, Con.anything)
-    , (Pkg.html, Con.anything)
+    , (Pkg.ui, Con.anything)
     ]
+
+
+starterMain :: String
+starterMain = unlines
+  [ "module Main exposing (main)"
+  , ""
+  , ""
+  , "import Browser"
+  , "import Lynx"
+  , "import Lynx.Attributes as Attr"
+  , "import Lynx.Events exposing (onTap)"
+  , ""
+  , ""
+  , ""
+  , ""
+  , "-- MAIN"
+  , ""
+  , ""
+  , "main : Program () Model Msg"
+  , "main ="
+  , "    Browser.sandbox"
+  , "        { init = init"
+  , "        , view = view"
+  , "        , update = update"
+  , "        }"
+  , ""
+  , ""
+  , ""
+  , "-- MODEL"
+  , ""
+  , ""
+  , "type alias Model ="
+  , "    { count : Int"
+  , "    }"
+  , ""
+  , ""
+  , "init : Model"
+  , "init ="
+  , "    { count = 0"
+  , "    }"
+  , ""
+  , ""
+  , ""
+  , "-- UPDATE"
+  , ""
+  , ""
+  , "type Msg"
+  , "    = Increment"
+  , "    | Decrement"
+  , ""
+  , ""
+  , "update : Msg -> Model -> Model"
+  , "update msg model ="
+  , "    case msg of"
+  , "        Increment ->"
+  , "            { model | count = model.count + 1 }"
+  , ""
+  , "        Decrement ->"
+  , "            { model | count = model.count - 1 }"
+  , ""
+  , ""
+  , ""
+  , "-- VIEW"
+  , ""
+  , ""
+  , "view : Model -> Lynx.Node Msg"
+  , "view model ="
+  , "    Lynx.view"
+  , "        [ Attr.flexDirection \"column\""
+  , "        , Attr.alignItems \"center\""
+  , "        , Attr.justifyContent \"center\""
+  , "        , Attr.flex 1"
+  , "        ]"
+  , "        [ Lynx.text"
+  , "            [ Attr.fontSize 24"
+  , "            , Attr.marginBottom 20"
+  , "            ]"
+  , "            [ Lynx.textContent \"LynxJS Elm App\" ]"
+  , "        , Lynx.view"
+  , "            [ Attr.flexDirection \"row\""
+  , "            , Attr.alignItems \"center\""
+  , "            ]"
+  , "            [ button Decrement \"-\""
+  , "            , Lynx.text"
+  , "                [ Attr.fontSize 32"
+  , "                , Attr.marginLeft 20"
+  , "                , Attr.marginRight 20"
+  , "                ]"
+  , "                [ Lynx.textContent (String.fromInt model.count) ]"
+  , "            , button Increment \"+\""
+  , "            ]"
+  , "        ]"
+  , ""
+  , ""
+  , "button : Msg -> String -> Lynx.Node Msg"
+  , "button msg label ="
+  , "    Lynx.view"
+  , "        [ onTap msg"
+  , "        , Attr.backgroundColor \"#4a90d9\""
+  , "        , Attr.borderRadius 8"
+  , "        , Attr.paddingTop 12"
+  , "        , Attr.paddingBottom 12"
+  , "        , Attr.paddingLeft 24"
+  , "        , Attr.paddingRight 24"
+  , "        ]"
+  , "        [ Lynx.text"
+  , "            [ Attr.color \"#ffffff\""
+  , "            , Attr.fontSize 24"
+  , "            ]"
+  , "            [ Lynx.textContent label ]"
+  , "        ]"
+  ]
