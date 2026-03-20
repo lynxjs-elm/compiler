@@ -438,9 +438,14 @@ skipDeadBody bc pc (K.JS js : rest) =
     Left (bc', pc') ->
       -- Didn't find statement end in this chunk; continue scanning
       skipDeadBody bc' pc' rest
-    Right remaining ->
-      -- Found statement end; return the remaining text + rest
-      if BS.null remaining then rest else K.JS remaining : rest
+    Right remaining
+      -- If the remaining text starts with '{', the scanner stopped after
+      -- a parameter list (e.g., "(value)\n") but the function body hasn't
+      -- been consumed yet. Continue skipping from the body.
+      | not (BS.null remaining) && BS.index remaining 0 == 0x7B {- { -} ->
+          skipDeadBody 0 0 (K.JS remaining : rest)
+      | BS.null remaining -> rest
+      | otherwise -> K.JS remaining : rest
 skipDeadBody bc pc (_ : rest) =
   -- Non-JS chunks (JsEnum, ElmField, etc.) don't affect brace/paren count
   skipDeadBody bc pc rest

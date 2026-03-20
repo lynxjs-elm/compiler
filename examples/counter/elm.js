@@ -261,9 +261,6 @@ function _Debug_todoCase(moduleName, region, value)
 
 // TO STRING
 
-{
-	return '<internals>';
-}
 
 function _Debug_toString(value)
 {
@@ -450,9 +447,6 @@ function _Debug_toHexDigit(n)
 // CRASH
 
 
-{
-	throw new Error('https://github.com/elm/core/blob/1.0.0/hints/' + identifier + '.md');
-}
 
 
 function _Debug_crash(identifier, fact1, fact2, fact3, fact4)
@@ -2302,11 +2296,6 @@ function _Platform_setupIncomingPort(name, sendToApp)
 //
 
 
-{
-	scope['Elm']
-		? _Platform_mergeExportsProd(scope['Elm'], exports)
-		: scope['Elm'] = exports;
-}
 
 
 function _Platform_mergeExportsProd(obj, exports)

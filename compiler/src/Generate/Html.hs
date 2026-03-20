@@ -108,16 +108,6 @@ polyfill :: B.Builder
 polyfill = [r|
 // LynxJS PAPI-to-DOM polyfill for browser preview
 (function() {
-  var tagMap = {
-    'view': 'div',
-    'text': 'span',
-    'image': 'img',
-    'scroll-view': 'div',
-    'input': 'input',
-    'textarea': 'textarea',
-    'list': 'div'
-  };
-
   var eventMap = {
     'tap': 'click',
     'longpress': 'contextmenu',
@@ -130,6 +120,12 @@ polyfill = [r|
 
   var g = typeof globalThis !== 'undefined' ? globalThis : window;
 
+  function makeEl(domTag, lynxTag) {
+    var el = document.createElement(domTag);
+    el.setAttribute('data-lynx-tag', lynxTag);
+    return el;
+  }
+
   g.__CreatePage = function() {
     var page = document.createElement('div');
     page.id = 'lynx-page';
@@ -137,11 +133,14 @@ polyfill = [r|
     return page;
   };
 
-  g.__CreateElement = function(tag) {
-    var domTag = tagMap[tag] || 'div';
-    var el = document.createElement(domTag);
-    if (tag === 'scroll-view') { el.style.overflow = 'auto'; }
-    el.setAttribute('data-lynx-tag', tag);
+  g.__CreateView = function() { return makeEl('div', 'view'); };
+  g.__CreateText = function() { return makeEl('span', 'text'); };
+  g.__CreateImage = function() { return makeEl('img', 'image'); };
+
+  g.__CreateRawText = function(text) {
+    var el = document.createElement('span');
+    el.setAttribute('data-lynx-tag', 'raw-text');
+    el.textContent = text;
     return el;
   };
 
@@ -162,7 +161,7 @@ polyfill = [r|
   };
 
   g.__SetAttribute = function(el, key, value) {
-    if (key === 'content' && el.getAttribute('data-lynx-tag') === 'text') {
+    if (key === 'text') {
       el.textContent = value;
     } else if (key === 'src' && el.tagName === 'IMG') {
       el.src = value;
@@ -171,19 +170,14 @@ polyfill = [r|
     }
   };
 
-  g.__AddEvent = function(el, bindingName, eventName, callback) {
+  g.__AddEvent = function(el, bindingName, eventName, handler) {
     var domEvent = eventMap[eventName] || eventName;
-    el.addEventListener(domEvent, function(e) {
-      callback(e);
-    });
+    var fn = typeof handler === 'function' ? handler : handler.value;
+    el.addEventListener(domEvent, function(e) { fn(e); });
   };
 
   g.__SetInlineStyles = function(el, styles) {
     Object.assign(el.style, styles);
-  };
-
-  g.__AddInlineStyle = function(el, key, value) {
-    el.style[key] = value;
   };
 
   g.__GetChildren = function(el) {
@@ -193,5 +187,10 @@ polyfill = [r|
   g.__GetParent = function(el) {
     return el.parentNode;
   };
+
+  g.__FlushElementTree = function() {};
+
+  // Set up root page so _Browser_newPage() finds it
+  g.page = g.__CreatePage();
 })();
 |]

@@ -14,16 +14,6 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 
 // LynxJS PAPI-to-DOM polyfill for browser preview
 (function() {
-  var tagMap = {
-    'view': 'div',
-    'text': 'span',
-    'image': 'img',
-    'scroll-view': 'div',
-    'input': 'input',
-    'textarea': 'textarea',
-    'list': 'div'
-  };
-
   var eventMap = {
     'tap': 'click',
     'longpress': 'contextmenu',
@@ -36,6 +26,12 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
 
   var g = typeof globalThis !== 'undefined' ? globalThis : window;
 
+  function makeEl(domTag, lynxTag) {
+    var el = document.createElement(domTag);
+    el.setAttribute('data-lynx-tag', lynxTag);
+    return el;
+  }
+
   g.__CreatePage = function() {
     var page = document.createElement('div');
     page.id = 'lynx-page';
@@ -43,11 +39,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
     return page;
   };
 
-  g.__createElement = function(tag) {
-    var domTag = tagMap[tag] || 'div';
-    var el = document.createElement(domTag);
-    if (tag === 'scroll-view') { el.style.overflow = 'auto'; }
-    el.setAttribute('data-lynx-tag', tag);
+  g.__CreateView = function() { return makeEl('div', 'view'); };
+  g.__CreateText = function() { return makeEl('span', 'text'); };
+  g.__CreateImage = function() { return makeEl('img', 'image'); };
+
+  g.__CreateRawText = function(text) {
+    var el = document.createElement('span');
+    el.setAttribute('data-lynx-tag', 'raw-text');
+    el.textContent = text;
     return el;
   };
 
@@ -68,7 +67,7 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
   };
 
   g.__SetAttribute = function(el, key, value) {
-    if (key === 'content' && el.getAttribute('data-lynx-tag') === 'text') {
+    if (key === 'text') {
       el.textContent = value;
     } else if (key === 'src' && el.tagName === 'IMG') {
       el.src = value;
@@ -77,19 +76,14 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
     }
   };
 
-  g.__AddEvent = function(el, bindingName, eventName, callback) {
+  g.__AddEvent = function(el, bindingName, eventName, handler) {
     var domEvent = eventMap[eventName] || eventName;
-    el.addEventListener(domEvent, function(e) {
-      callback(e);
-    });
+    var fn = typeof handler === 'function' ? handler : handler.value;
+    el.addEventListener(domEvent, function(e) { fn(e); });
   };
 
   g.__SetInlineStyles = function(el, styles) {
     Object.assign(el.style, styles);
-  };
-
-  g.__AddInlineStyle = function(el, key, value) {
-    el.style[key] = value;
   };
 
   g.__GetChildren = function(el) {
@@ -99,6 +93,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-
   g.__GetParent = function(el) {
     return el.parentNode;
   };
+
+  g.__FlushElementTree = function() {};
+
+  // Set up root page so _Browser_newPage() finds it
+  g.page = g.__CreatePage();
 })();
 
 </script>
@@ -339,10 +338,6 @@ var _JsArray_appendN = F3(function(n, dest, source)
 
 // LOG
 
-var _Debug_log_UNUSED = F2(function(tag, value)
-{
-	return value;
-});
 
 var _Debug_log = F2(function(tag, value)
 {
@@ -370,10 +365,6 @@ function _Debug_todoCase(moduleName, region, value)
 
 // TO STRING
 
-function _Debug_toString_UNUSED(value)
-{
-	return '<internals>';
-}
 
 function _Debug_toString(value)
 {
@@ -560,10 +551,6 @@ function _Debug_toHexDigit(n)
 // CRASH
 
 
-function _Debug_crash_UNUSED(identifier)
-{
-	throw new Error('https://github.com/elm/core/blob/1.0.0/hints/' + identifier + '.md');
-}
 
 
 function _Debug_crash(identifier, fact1, fact2, fact3, fact4)
@@ -756,16 +743,12 @@ var _Utils_compare = F2(function(x, y)
 
 // COMMON VALUES
 
-var _Utils_Tuple0_UNUSED = 0;
 var _Utils_Tuple0 = { $: '#0' };
 
-function _Utils_Tuple2_UNUSED(a, b) { return { a: a, b: b }; }
 function _Utils_Tuple2(a, b) { return { $: '#2', a: a, b: b }; }
 
-function _Utils_Tuple3_UNUSED(a, b, c) { return { a: a, b: b, c: c }; }
 function _Utils_Tuple3(a, b, c) { return { $: '#3', a: a, b: b, c: c }; }
 
-function _Utils_chr_UNUSED(c) { return c; }
 function _Utils_chr(c) { return new String(c); }
 
 
@@ -817,10 +800,8 @@ function _Utils_ap(xs, ys)
 
 
 
-var _List_Nil_UNUSED = { $: 0 };
 var _List_Nil = { $: '[]' };
 
-function _List_Cons_UNUSED(hd, tl) { return { $: 1, a: hd, b: tl }; }
 function _List_Cons(hd, tl) { return { $: '::', a: hd, b: tl }; }
 
 
@@ -1724,8 +1705,6 @@ var _Json_encode = F2(function(indentLevel, value)
 function _Json_wrap(value) { return { $: 0, a: value }; }
 function _Json_unwrap(value) { return value.a; }
 
-function _Json_wrap_UNUSED(value) { return value; }
-function _Json_unwrap_UNUSED(value) { return value; }
 
 function _Json_emptyArray() { return []; }
 function _Json_emptyObject() { return {}; }
@@ -2421,12 +2400,6 @@ function _Platform_setupIncomingPort(name, sendToApp)
 //
 
 
-function _Platform_export_UNUSED(exports)
-{
-	scope['Elm']
-		? _Platform_mergeExportsProd(scope['Elm'], exports)
-		: scope['Elm'] = exports;
-}
 
 
 function _Platform_mergeExportsProd(obj, exports)
@@ -2466,20 +2439,26 @@ function _Platform_mergeExportsDebug(moduleName, obj, exports)
 
 var _Lynx_g = (typeof globalThis !== 'undefined' ? globalThis : scope);
 function _Lynx_papi(name) { return _Lynx_g['_' + '_' + name] || function() {}; }
-var _Lynx_createElement = _Lynx_papi('createElement');
-var _Lynx_createPage = _Lynx_papi('CreatePage');
+var _Lynx_createViewFn = _Lynx_papi('CreateView');
+var _Lynx_createTextFn = _Lynx_papi('CreateText');
+var _Lynx_createImageFn = _Lynx_papi('CreateImage');
+function _Lynx_createElement(tag) {
+	var pId = (_Lynx_g['native'] && _Lynx_g['native']['currentPageId']) || 0;
+	return (tag === 'text' ? _Lynx_createTextFn
+		: tag === 'image' ? _Lynx_createImageFn
+		: _Lynx_createViewFn)(pId);
+}
+var _Lynx_createRawText = _Lynx_papi('CreateRawText');
 var _Lynx_appendChild = _Lynx_papi('AppendElement');
 var _Lynx_removeElement = _Lynx_papi('RemoveElement');
 var _Lynx_replaceElement = _Lynx_papi('ReplaceElement');
 var _Lynx_insertBefore = _Lynx_papi('InsertElementBefore');
 var _Lynx_setAttribute = _Lynx_papi('SetAttribute');
-var _Lynx_getChildren = _Lynx_g['_' + '_GetChildren'] || function() { return []; };
-var _Lynx_getParent = _Lynx_g['_' + '_GetParent'] || function() { return null; };
+var _Lynx_getChildren = _Lynx_papi('GetChildren');
+var _Lynx_getParent = _Lynx_papi('GetParent');
 var _Lynx_addEvent = _Lynx_papi('AddEvent');
-var _Lynx_setInlineStyles = _Lynx_g['_' + '_SetInlineStyles'];
-var _Lynx_addInlineStyle = _Lynx_papi('AddInlineStyle');
-
-var _VirtualDom_elementMeta = new Map();
+var _Lynx_setInlineStyles = _Lynx_papi('SetInlineStyles');
+var _VirtualDom_elementMeta = new WeakMap();
 function _VirtualDom_getMeta(el) {
 	var meta = _VirtualDom_elementMeta.get(el);
 	if (!meta) { meta = {}; _VirtualDom_elementMeta.set(el, meta); }
@@ -2501,7 +2480,7 @@ function _VirtualDom_appendChild(parent, child)
 var _VirtualDom_init = F4(function(virtualNode, flagDecoder, debugMetadata, args)
 {
 	// NOTE: this function needs _Platform_export available to work
-	var rootPage = args['node'] || _Lynx_createPage();
+	var rootPage = args['node'] || _Lynx_g['page'];
 	var tree = _VirtualDom_render(virtualNode, function() {});
 	_Lynx_appendChild(rootPage, tree);
 	return {};
@@ -2793,7 +2772,7 @@ var _VirtualDom_mapAttribute = F2(function(func, attr)
 
 function _VirtualDom_mapHandler(func, handler)
 {
-	var tag = $elm$virtual_dom$VirtualDom$toHandlerInt(handler);
+	var tag = $lynxjs_elm$virtual_dom$VirtualDom$toHandlerInt(handler);
 
 	// 0 = Normal
 	// 1 = MayStopPropagation
@@ -2885,9 +2864,7 @@ function _VirtualDom_render(vNode, eventNode)
 
 	if (tag === 0)
 	{
-		var textEl = _Lynx_createElement('text', 0, {});
-		_Lynx_setAttribute(textEl, 'content', vNode.a);
-		return textEl;
+		return _Lynx_createRawText(vNode.a);
 	}
 
 	if (tag === 4)
@@ -2919,13 +2896,21 @@ function _VirtualDom_render(vNode, eventNode)
 
 	// at this point `tag` must be 1 or 2
 
-	var domNode = _Lynx_createElement(vNode.c, 0, {});
+	var domNode = _Lynx_createElement(vNode.c);
 
 	_VirtualDom_applyFacts(domNode, eventNode, vNode.d);
 
 	for (var kids = vNode.e, i = 0; i < kids.length; i++)
 	{
-		_VirtualDom_appendChild(domNode, _VirtualDom_render(tag === 1 ? kids[i] : kids[i].b, eventNode));
+		var kid = tag === 1 ? kids[i] : kids[i].b;
+		if (kid.$ === 0)
+		{
+			_Lynx_appendChild(domNode, _Lynx_createRawText(kid.a));
+		}
+		else
+		{
+			_VirtualDom_appendChild(domNode, _VirtualDom_render(kid, eventNode));
+		}
 	}
 
 	return domNode;
@@ -2965,17 +2950,7 @@ function _VirtualDom_applyFacts(domNode, eventNode, facts)
 
 function _VirtualDom_applyStyles(domNode, styles)
 {
-	if (_Lynx_setInlineStyles)
-	{
-		_Lynx_setInlineStyles(domNode, styles);
-	}
-	else
-	{
-		for (var key in styles)
-		{
-			_Lynx_addInlineStyle(domNode, key, styles[key]);
-		}
-	}
+	_Lynx_setInlineStyles(domNode, styles);
 }
 
 
@@ -3049,9 +3024,9 @@ function _VirtualDom_applyEvents(domNode, eventNode, events)
 		allCallbacks[key] = oldCallback;
 
 		var lynxEventName = _VirtualDom_mapEventName(key);
-		var handlerType = $elm$virtual_dom$VirtualDom$toHandlerInt(newHandler);
+		var handlerType = $lynxjs_elm$virtual_dom$VirtualDom$toHandlerInt(newHandler);
 		var prefix = (handlerType === 1) ? 'catch' : 'bind';
-		_Lynx_addEvent(domNode, prefix + lynxEventName, lynxEventName, oldCallback);
+		_Lynx_addEvent(domNode, 'catchEvent', lynxEventName, { type: 'worklet', value: oldCallback });
 	}
 }
 
@@ -3089,7 +3064,7 @@ function _VirtualDom_makeCallback(eventNode, initialHandler)
 			return;
 		}
 
-		var tag = $elm$virtual_dom$VirtualDom$toHandlerInt(handler);
+		var tag = $lynxjs_elm$virtual_dom$VirtualDom$toHandlerInt(handler);
 
 		// 0 = Normal
 		// 1 = MayStopPropagation
@@ -3839,7 +3814,7 @@ function _VirtualDom_applyPatch(domNode, patch)
 			return domNode;
 
 		case 3:
-			_Lynx_setAttribute(domNode, 'content', patch.s);
+			_Lynx_setAttribute(domNode, 'text', patch.s);
 			return domNode;
 
 		case 1:
@@ -3896,7 +3871,7 @@ function _VirtualDom_applyPatch(domNode, patch)
 			return patch.s(domNode);
 
 		default:
-			_Debug_crash(10); // 'Ran into an unknown patch!'
+			throw new Error('VirtualDom: unknown patch type');
 	}
 }
 
@@ -4000,16 +3975,20 @@ function _VirtualDom_dekey(keyedNode)
 
 // LYNXJS PAPI WRAPPERS
 var _Browser_lynx = (typeof globalThis !== 'undefined' ? globalThis : scope);
-var _Browser_createPage = _Browser_lynx['_' + '_CreatePage'] || function() { return {}; };
+function _Browser_newPage() {
+	return _Browser_lynx['page'];
+}
+function _Browser_flush() {
+	var fn = _Browser_lynx['_' + '_FlushElementTree'];
+	if (typeof fn === 'function') { fn(); }
+}
 
 
 
 // ELEMENT
 
 
-var _Debugger_element;
-
-var _Browser_element = _Debugger_element || F4(function(impl, flagDecoder, debugMetadata, args)
+var _Browser_element = F4(function(impl, flagDecoder, debugMetadata, args)
 {
 	return _Platform_initialize(
 		flagDecoder,
@@ -4019,10 +3998,11 @@ var _Browser_element = _Debugger_element || F4(function(impl, flagDecoder, debug
 		impl.subscriptions,
 		function(sendToApp, initialModel) {
 			var view = impl.view;
-			var domNode = args['node'] || _Browser_createPage();
+			var domNode = args['node'] || _Browser_newPage();
 			var currNode = view(initialModel);
 			var currDomNode = _VirtualDom_render(currNode, sendToApp);
 			_VirtualDom_appendChild(domNode, currDomNode);
+			_Browser_flush();
 
 			return _Browser_makeAnimator(initialModel, function(model)
 			{
@@ -4030,6 +4010,7 @@ var _Browser_element = _Debugger_element || F4(function(impl, flagDecoder, debug
 				var patches = _VirtualDom_diff(currNode, nextNode);
 				currDomNode = _VirtualDom_applyPatches(currDomNode, currNode, patches, sendToApp);
 				currNode = nextNode;
+				_Browser_flush();
 			});
 		}
 	);
@@ -4040,9 +4021,7 @@ var _Browser_element = _Debugger_element || F4(function(impl, flagDecoder, debug
 // DOCUMENT
 
 
-var _Debugger_document;
-
-var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, debugMetadata, args)
+var _Browser_document = F4(function(impl, flagDecoder, debugMetadata, args)
 {
 	return _Platform_initialize(
 		flagDecoder,
@@ -4052,11 +4031,12 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 		impl.subscriptions,
 		function(sendToApp, initialModel) {
 			var view = impl.view;
-			var rootNode = args['node'] || _Browser_createPage();
+			var rootNode = args['node'] || _Browser_newPage();
 			var doc = view(initialModel);
 			var currNode = _VirtualDom_node('view')(_List_Nil)(doc.body);
 			var currDomNode = _VirtualDom_render(currNode, sendToApp);
 			_VirtualDom_appendChild(rootNode, currDomNode);
+			_Browser_flush();
 
 			return _Browser_makeAnimator(initialModel, function(model)
 			{
@@ -4065,6 +4045,7 @@ var _Browser_document = _Debugger_document || F4(function(impl, flagDecoder, deb
 				var patches = _VirtualDom_diff(currNode, nextNode);
 				currDomNode = _VirtualDom_applyPatches(currDomNode, currNode, patches, sendToApp);
 				currNode = nextNode;
+				_Browser_flush();
 			});
 		}
 	);
@@ -4246,7 +4227,7 @@ function _Browser_withNode(id, doStuff)
 {
 	return _Scheduler_binding(function(callback)
 	{
-		callback(_Scheduler_fail($elm$browser$Browser$Dom$NotFound(id)));
+		callback(_Scheduler_fail($lynxjs_elm$browser$Browser$Dom$NotFound(id)));
 	});
 }
 
@@ -4883,7 +4864,7 @@ var $elm$core$Result$isOk = function (result) {
 var $elm$json$Json$Decode$map = _Json_map1;
 var $elm$json$Json$Decode$map2 = _Json_map2;
 var $elm$json$Json$Decode$succeed = _Json_succeed;
-var $elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
+var $lynxjs_elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 	switch (handler.$) {
 		case 'Normal':
 			return 0;
@@ -4898,7 +4879,7 @@ var $elm$virtual_dom$VirtualDom$toHandlerInt = function (handler) {
 var $elm$core$Basics$identity = function (x) {
 	return x;
 };
-var $elm$browser$Browser$Dom$NotFound = function (a) {
+var $lynxjs_elm$browser$Browser$Dom$NotFound = function (a) {
 	return {$: 'NotFound', a: a};
 };
 var $elm$core$Basics$never = function (_v0) {
@@ -5062,7 +5043,7 @@ var $elm$core$Platform$Cmd$batch = _Platform_batch;
 var $elm$core$Platform$Cmd$none = $elm$core$Platform$Cmd$batch(_List_Nil);
 var $elm$core$Platform$Sub$batch = _Platform_batch;
 var $elm$core$Platform$Sub$none = $elm$core$Platform$Sub$batch(_List_Nil);
-var $elm$browser$Browser$sandbox = function (impl) {
+var $lynxjs_elm$browser$Browser$sandbox = function (impl) {
 	return _Browser_element(
 		{
 			init: function (_v0) {
@@ -5092,122 +5073,178 @@ var $author$project$Main$update = F2(
 				{count: model.count - 1});
 		}
 	});
+var $lynxjs_elm$ui$Lynx$Attributes$Center = {$: 'Center'};
+var $lynxjs_elm$ui$Lynx$Attributes$Column = {$: 'Column'};
 var $author$project$Main$Decrement = {$: 'Decrement'};
 var $author$project$Main$Increment = {$: 'Increment'};
-var $elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
-var $author$project$Lynx$Attributes$style = $elm$virtual_dom$VirtualDom$style;
-var $author$project$Lynx$Attributes$alignItems = $author$project$Lynx$Attributes$style('alignItems');
-var $author$project$Lynx$Attributes$backgroundColor = $author$project$Lynx$Attributes$style('backgroundColor');
-var $author$project$Lynx$Attributes$intStyle = F2(
+var $lynxjs_elm$ui$Lynx$Attributes$Row = {$: 'Row'};
+var $lynxjs_elm$ui$Lynx$Attributes$alignmentToString = function (a) {
+	switch (a.$) {
+		case 'Start':
+			return 'flex-start';
+		case 'Center':
+			return 'center';
+		case 'End':
+			return 'flex-end';
+		case 'SpaceBetween':
+			return 'space-between';
+		case 'SpaceAround':
+			return 'space-around';
+		case 'SpaceEvenly':
+			return 'space-evenly';
+		case 'Stretch':
+			return 'stretch';
+		default:
+			return 'baseline';
+	}
+};
+var $lynxjs_elm$virtual_dom$VirtualDom$style = _VirtualDom_style;
+var $lynxjs_elm$ui$Lynx$Attributes$style = $lynxjs_elm$virtual_dom$VirtualDom$style;
+var $lynxjs_elm$ui$Lynx$Attributes$alignItems = function (a) {
+	return A2(
+		$lynxjs_elm$ui$Lynx$Attributes$style,
+		'alignItems',
+		$lynxjs_elm$ui$Lynx$Attributes$alignmentToString(a));
+};
+var $lynxjs_elm$ui$Lynx$Attributes$backgroundColor = $lynxjs_elm$ui$Lynx$Attributes$style('backgroundColor');
+var $lynxjs_elm$ui$Lynx$Attributes$pxStyle = F2(
 	function (key, val) {
 		return A2(
-			$elm$virtual_dom$VirtualDom$style,
+			$lynxjs_elm$virtual_dom$VirtualDom$style,
 			key,
-			$elm$core$String$fromInt(val));
+			$elm$core$String$fromInt(val) + 'px');
 	});
-var $author$project$Lynx$Attributes$borderRadius = $author$project$Lynx$Attributes$intStyle('borderRadius');
-var $author$project$Lynx$Attributes$color = $author$project$Lynx$Attributes$style('color');
-var $author$project$Lynx$Attributes$fontSize = $author$project$Lynx$Attributes$intStyle('fontSize');
-var $elm$virtual_dom$VirtualDom$Normal = function (a) {
+var $lynxjs_elm$ui$Lynx$Attributes$borderRadius = $lynxjs_elm$ui$Lynx$Attributes$pxStyle('borderRadius');
+var $lynxjs_elm$ui$Lynx$Attributes$color = $lynxjs_elm$ui$Lynx$Attributes$style('color');
+var $lynxjs_elm$ui$Lynx$Attributes$fontSize = $lynxjs_elm$ui$Lynx$Attributes$pxStyle('fontSize');
+var $lynxjs_elm$virtual_dom$VirtualDom$Normal = function (a) {
 	return {$: 'Normal', a: a};
 };
-var $elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
-var $author$project$Lynx$Events$onTap = function (msg) {
+var $lynxjs_elm$virtual_dom$VirtualDom$on = _VirtualDom_on;
+var $lynxjs_elm$ui$Lynx$Events$onTap = function (msg) {
 	return A2(
-		$elm$virtual_dom$VirtualDom$on,
+		$lynxjs_elm$virtual_dom$VirtualDom$on,
 		'tap',
-		$elm$virtual_dom$VirtualDom$Normal(
+		$lynxjs_elm$virtual_dom$VirtualDom$Normal(
 			$elm$json$Json$Decode$succeed(msg)));
 };
-var $author$project$Lynx$Attributes$paddingBottom = $author$project$Lynx$Attributes$intStyle('paddingBottom');
-var $author$project$Lynx$Attributes$paddingLeft = $author$project$Lynx$Attributes$intStyle('paddingLeft');
-var $author$project$Lynx$Attributes$paddingRight = $author$project$Lynx$Attributes$intStyle('paddingRight');
-var $author$project$Lynx$Attributes$paddingTop = $author$project$Lynx$Attributes$intStyle('paddingTop');
-var $elm$virtual_dom$VirtualDom$node = function (tag) {
+var $lynxjs_elm$ui$Lynx$Attributes$paddingBottom = $lynxjs_elm$ui$Lynx$Attributes$pxStyle('paddingBottom');
+var $lynxjs_elm$ui$Lynx$Attributes$paddingLeft = $lynxjs_elm$ui$Lynx$Attributes$pxStyle('paddingLeft');
+var $lynxjs_elm$ui$Lynx$Attributes$paddingRight = $lynxjs_elm$ui$Lynx$Attributes$pxStyle('paddingRight');
+var $lynxjs_elm$ui$Lynx$Attributes$paddingTop = $lynxjs_elm$ui$Lynx$Attributes$pxStyle('paddingTop');
+var $lynxjs_elm$virtual_dom$VirtualDom$node = function (tag) {
 	return _VirtualDom_node(
 		_VirtualDom_noScript(tag));
 };
-var $author$project$Lynx$text = $elm$virtual_dom$VirtualDom$node('text');
-var $elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
-var $author$project$Lynx$textContent = $elm$virtual_dom$VirtualDom$text;
-var $author$project$Lynx$view = $elm$virtual_dom$VirtualDom$node('view');
+var $lynxjs_elm$ui$Lynx$text = $lynxjs_elm$virtual_dom$VirtualDom$node('text');
+var $lynxjs_elm$virtual_dom$VirtualDom$text = _VirtualDom_text;
+var $lynxjs_elm$ui$Lynx$textContent = $lynxjs_elm$virtual_dom$VirtualDom$text;
+var $lynxjs_elm$ui$Lynx$view = $lynxjs_elm$virtual_dom$VirtualDom$node('view');
 var $author$project$Main$button = F2(
 	function (msg, label) {
 		return A2(
-			$author$project$Lynx$view,
+			$lynxjs_elm$ui$Lynx$view,
 			_List_fromArray(
 				[
-					$author$project$Lynx$Events$onTap(msg),
-					$author$project$Lynx$Attributes$backgroundColor('#4a90d9'),
-					$author$project$Lynx$Attributes$borderRadius(8),
-					$author$project$Lynx$Attributes$paddingTop(12),
-					$author$project$Lynx$Attributes$paddingBottom(12),
-					$author$project$Lynx$Attributes$paddingLeft(24),
-					$author$project$Lynx$Attributes$paddingRight(24)
+					$lynxjs_elm$ui$Lynx$Events$onTap(msg),
+					$lynxjs_elm$ui$Lynx$Attributes$backgroundColor('#4a90d9'),
+					$lynxjs_elm$ui$Lynx$Attributes$borderRadius(8),
+					$lynxjs_elm$ui$Lynx$Attributes$paddingTop(12),
+					$lynxjs_elm$ui$Lynx$Attributes$paddingBottom(12),
+					$lynxjs_elm$ui$Lynx$Attributes$paddingLeft(24),
+					$lynxjs_elm$ui$Lynx$Attributes$paddingRight(24)
 				]),
 			_List_fromArray(
 				[
 					A2(
-					$author$project$Lynx$text,
+					$lynxjs_elm$ui$Lynx$text,
 					_List_fromArray(
 						[
-							$author$project$Lynx$Attributes$color('#ffffff'),
-							$author$project$Lynx$Attributes$fontSize(24)
+							$lynxjs_elm$ui$Lynx$Attributes$color('#ffffff'),
+							$lynxjs_elm$ui$Lynx$Attributes$fontSize(24)
 						]),
 					_List_fromArray(
 						[
-							$author$project$Lynx$textContent(label)
+							$lynxjs_elm$ui$Lynx$textContent(label)
 						]))
 				]));
 	});
-var $author$project$Lynx$Attributes$flex = $author$project$Lynx$Attributes$intStyle('flex');
-var $author$project$Lynx$Attributes$flexDirection = $author$project$Lynx$Attributes$style('flexDirection');
-var $author$project$Lynx$Attributes$justifyContent = $author$project$Lynx$Attributes$style('justifyContent');
-var $author$project$Lynx$Attributes$marginLeft = $author$project$Lynx$Attributes$intStyle('marginLeft');
-var $author$project$Lynx$Attributes$marginRight = $author$project$Lynx$Attributes$intStyle('marginRight');
+var $lynxjs_elm$ui$Lynx$Attributes$intStyle = F2(
+	function (key, val) {
+		return A2(
+			$lynxjs_elm$virtual_dom$VirtualDom$style,
+			key,
+			$elm$core$String$fromInt(val));
+	});
+var $lynxjs_elm$ui$Lynx$Attributes$flex = $lynxjs_elm$ui$Lynx$Attributes$intStyle('flex');
+var $lynxjs_elm$ui$Lynx$Attributes$flexDirection = function (d) {
+	return A2(
+		$lynxjs_elm$ui$Lynx$Attributes$style,
+		'flexDirection',
+		function () {
+			switch (d.$) {
+				case 'Row':
+					return 'row';
+				case 'Column':
+					return 'column';
+				case 'RowReverse':
+					return 'row-reverse';
+				default:
+					return 'column-reverse';
+			}
+		}());
+};
+var $lynxjs_elm$ui$Lynx$Attributes$justifyContent = function (a) {
+	return A2(
+		$lynxjs_elm$ui$Lynx$Attributes$style,
+		'justifyContent',
+		$lynxjs_elm$ui$Lynx$Attributes$alignmentToString(a));
+};
+var $lynxjs_elm$ui$Lynx$Attributes$marginLeft = $lynxjs_elm$ui$Lynx$Attributes$pxStyle('marginLeft');
+var $lynxjs_elm$ui$Lynx$Attributes$marginRight = $lynxjs_elm$ui$Lynx$Attributes$pxStyle('marginRight');
 var $author$project$Main$view = function (model) {
 	return A2(
-		$author$project$Lynx$view,
+		$lynxjs_elm$ui$Lynx$view,
 		_List_fromArray(
 			[
-				$author$project$Lynx$Attributes$flexDirection('column'),
-				$author$project$Lynx$Attributes$alignItems('center'),
-				$author$project$Lynx$Attributes$justifyContent('center'),
-				$author$project$Lynx$Attributes$flex(1)
+				$lynxjs_elm$ui$Lynx$Attributes$flexDirection($lynxjs_elm$ui$Lynx$Attributes$Column),
+				$lynxjs_elm$ui$Lynx$Attributes$alignItems($lynxjs_elm$ui$Lynx$Attributes$Center),
+				$lynxjs_elm$ui$Lynx$Attributes$justifyContent($lynxjs_elm$ui$Lynx$Attributes$Center),
+				$lynxjs_elm$ui$Lynx$Attributes$flex(1)
 			]),
 		_List_fromArray(
 			[
 				A2(
-				$author$project$Lynx$view,
+				$lynxjs_elm$ui$Lynx$view,
 				_List_fromArray(
 					[
-						$author$project$Lynx$Attributes$flexDirection('row'),
-						$author$project$Lynx$Attributes$alignItems('center')
+						$lynxjs_elm$ui$Lynx$Attributes$flexDirection($lynxjs_elm$ui$Lynx$Attributes$Row),
+						$lynxjs_elm$ui$Lynx$Attributes$alignItems($lynxjs_elm$ui$Lynx$Attributes$Center)
 					]),
 				_List_fromArray(
 					[
 						A2($author$project$Main$button, $author$project$Main$Decrement, '-'),
 						A2(
-						$author$project$Lynx$text,
+						$lynxjs_elm$ui$Lynx$text,
 						_List_fromArray(
 							[
-								$author$project$Lynx$Attributes$fontSize(32),
-								$author$project$Lynx$Attributes$marginLeft(20),
-								$author$project$Lynx$Attributes$marginRight(20)
+								$lynxjs_elm$ui$Lynx$Attributes$fontSize(32),
+								$lynxjs_elm$ui$Lynx$Attributes$marginLeft(20),
+								$lynxjs_elm$ui$Lynx$Attributes$marginRight(20)
 							]),
 						_List_fromArray(
 							[
-								$author$project$Lynx$textContent(
+								$lynxjs_elm$ui$Lynx$textContent(
 								$elm$core$String$fromInt(model.count))
 							])),
 						A2($author$project$Main$button, $author$project$Main$Increment, '+')
 					]))
 			]));
 };
-var $author$project$Main$main = $elm$browser$Browser$sandbox(
+var $author$project$Main$main = $lynxjs_elm$browser$Browser$sandbox(
 	{init: $author$project$Main$init, update: $author$project$Main$update, view: $author$project$Main$view});
 _Platform_export({'Main':{'init':$author$project$Main$main(
-	$elm$json$Json$Decode$succeed(_Utils_Tuple0))(0)}});}(this));
+	$elm$json$Json$Decode$succeed(_Utils_Tuple0))(0)}});}(globalThis));
 var app = Elm.Main.init({});
 </script>
 </body>
