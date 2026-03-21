@@ -137,7 +137,7 @@ compileAndWrite root path elmOutput =
               Task.mapError Exit.MakeBadGenerate (Generate.dev root details artifacts)
         case result of
           Left e ->
-            do  _ <- Reporting.attemptWithStyle Reporting.silent Exit.makeToReport (return (Left e))
+            do  Exit.toStderr (Exit.makeToReport e)
                 return False
 
           Right javascript ->
