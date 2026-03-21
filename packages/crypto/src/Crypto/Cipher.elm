@@ -1,58 +1,40 @@
 module Crypto.Cipher exposing
-    ( Key, Nonce12, Nonce24
+    ( Key, Nonce
     , keyFromHex, keyToHex
-    , nonce12FromHex, nonce12ToHex
-    , nonce24FromHex, nonce24ToHex
-    , aesGcmEncrypt, aesGcmDecrypt
-    , chacha20Encrypt, chacha20Decrypt
-    , xchacha20Encrypt, xchacha20Decrypt
+    , nonceFromHex, nonceToHex
+    , encrypt, decrypt
     )
 
-{-| Authenticated encryption (AEAD) using AES-GCM, ChaCha20-Poly1305, and
-XChaCha20-Poly1305. All data is hex-encoded.
+{-| Authenticated encryption using XSalsa20-Poly1305 (NaCl secretbox).
+All data is hex-encoded.
 
-Ciphertext includes the 16-byte authentication tag appended automatically.
+Ciphertext includes the 16-byte authentication tag prepended automatically.
 Decryption returns `Nothing` if authentication fails (tampered data or wrong key/nonce).
 
 # Types
-@docs Key, Nonce12, Nonce24
+@docs Key, Nonce
 
 # Key & Nonce Construction
 @docs keyFromHex, keyToHex
-@docs nonce12FromHex, nonce12ToHex
-@docs nonce24FromHex, nonce24ToHex
+@docs nonceFromHex, nonceToHex
 
-# AES-256-GCM
-@docs aesGcmEncrypt, aesGcmDecrypt
-
-# ChaCha20-Poly1305
-@docs chacha20Encrypt, chacha20Decrypt
-
-# XChaCha20-Poly1305
-@docs xchacha20Encrypt, xchacha20Decrypt
+# Encrypt / Decrypt
+@docs encrypt, decrypt
 -}
 
 import Elm.Kernel.Crypto
 
 
-{-| A 256-bit (32-byte) symmetric key. Used by all ciphers. -}
+{-| A 256-bit (32-byte) symmetric key. -}
 type Key = Key
 
 
-{-| A 96-bit (12-byte) nonce. Used by AES-GCM and ChaCha20-Poly1305.
+{-| A 192-bit (24-byte) nonce. Large enough for safe random generation
+since collision probability is negligible.
 
-**Important:** Never reuse a nonce with the same key. Each (key, nonce) pair
-must be unique across all messages.
+**Important:** Never reuse a nonce with the same key.
 -}
-type Nonce12 = Nonce12
-
-
-{-| A 192-bit (24-byte) nonce. Used by XChaCha20-Poly1305.
-
-Larger nonces are safer for random generation since collision probability
-is negligible.
--}
-type Nonce24 = Nonce24
+type Nonce = Nonce
 
 
 {-| Parse a hex-encoded key (32 bytes / 64 hex chars). -}
@@ -67,65 +49,27 @@ keyToHex =
     Elm.Kernel.Crypto.cipherKeyToHex
 
 
-{-| Parse a hex-encoded 12-byte nonce (24 hex chars). -}
-nonce12FromHex : String -> Maybe Nonce12
-nonce12FromHex =
-    Elm.Kernel.Crypto.cipherNonce12FromHex
-
-
-{-| Get the hex representation of a 12-byte nonce. -}
-nonce12ToHex : Nonce12 -> String
-nonce12ToHex =
-    Elm.Kernel.Crypto.cipherNonce12ToHex
-
-
 {-| Parse a hex-encoded 24-byte nonce (48 hex chars). -}
-nonce24FromHex : String -> Maybe Nonce24
-nonce24FromHex =
+nonceFromHex : String -> Maybe Nonce
+nonceFromHex =
     Elm.Kernel.Crypto.cipherNonce24FromHex
 
 
-{-| Get the hex representation of a 24-byte nonce. -}
-nonce24ToHex : Nonce24 -> String
-nonce24ToHex =
+{-| Get the hex representation of a nonce. -}
+nonceToHex : Nonce -> String
+nonceToHex =
     Elm.Kernel.Crypto.cipherNonce24ToHex
 
 
-{-| Encrypt with AES-256-GCM. Returns ciphertext with appended 16-byte auth tag.
+{-| Encrypt with XSalsa20-Poly1305. Returns hex-encoded ciphertext
+with prepended 16-byte authentication tag.
 -}
-aesGcmEncrypt : Key -> Nonce12 -> String -> String
-aesGcmEncrypt =
-    Elm.Kernel.Crypto.aesGcmEncrypt
+encrypt : Key -> Nonce -> String -> String
+encrypt =
+    Elm.Kernel.Crypto.encrypt
 
 
-{-| Decrypt with AES-256-GCM. Returns `Nothing` if authentication fails. -}
-aesGcmDecrypt : Key -> Nonce12 -> String -> Maybe String
-aesGcmDecrypt =
-    Elm.Kernel.Crypto.aesGcmDecrypt
-
-
-{-| Encrypt with ChaCha20-Poly1305. Returns ciphertext with appended 16-byte auth tag.
--}
-chacha20Encrypt : Key -> Nonce12 -> String -> String
-chacha20Encrypt =
-    Elm.Kernel.Crypto.chacha20Encrypt
-
-
-{-| Decrypt with ChaCha20-Poly1305. Returns `Nothing` if authentication fails. -}
-chacha20Decrypt : Key -> Nonce12 -> String -> Maybe String
-chacha20Decrypt =
-    Elm.Kernel.Crypto.chacha20Decrypt
-
-
-{-| Encrypt with XChaCha20-Poly1305. Returns ciphertext with appended 16-byte auth tag.
-Uses a 24-byte nonce which is safer for random nonce generation.
--}
-xchacha20Encrypt : Key -> Nonce24 -> String -> String
-xchacha20Encrypt =
-    Elm.Kernel.Crypto.xchacha20Encrypt
-
-
-{-| Decrypt with XChaCha20-Poly1305. Returns `Nothing` if authentication fails. -}
-xchacha20Decrypt : Key -> Nonce24 -> String -> Maybe String
-xchacha20Decrypt =
-    Elm.Kernel.Crypto.xchacha20Decrypt
+{-| Decrypt with XSalsa20-Poly1305. Returns `Nothing` if authentication fails. -}
+decrypt : Key -> Nonce -> String -> Maybe String
+decrypt =
+    Elm.Kernel.Crypto.decrypt
