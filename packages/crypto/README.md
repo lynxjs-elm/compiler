@@ -22,6 +22,7 @@ Add to your `elm.json`:
 
 - [`Crypto.Secp256k1`](#cryptosecp256k1) — ECDSA signing, ECDH key exchange (Bitcoin, Ethereum)
 - [`Crypto.Ed25519`](#cryptoed25519) — EdDSA signing (SSH, Signal)
+- [`Crypto.X25519`](#cryptox25519) — ECDH key exchange (WireGuard, Signal, Noise)
 - [`Crypto.P256`](#cryptop256) — ECDSA signing, ECDH key exchange (TLS, WebAuthn)
 - [`Crypto.Cipher`](#cryptocipher) — AES-256-GCM, ChaCha20-Poly1305, XChaCha20-Poly1305
 
@@ -209,6 +210,67 @@ case Ed25519.privateKeyFromHex "9d61b19d...cae7f60" of
         Ed25519.verify sig messageHex pub  -- True
 
     Nothing ->
+        False
+```
+
+---
+
+## Crypto.X25519
+
+```elm
+import Crypto.X25519 as X25519
+```
+
+X25519 Diffie-Hellman key exchange on Curve25519 (Montgomery form). Used in WireGuard, Signal, Noise Protocol, TLS 1.3.
+
+### Types
+
+```elm
+type PrivateKey
+type PublicKey
+```
+
+### Key Conversion
+
+```elm
+privateKeyFromHex : String -> Maybe PrivateKey
+privateKeyToHex   : PrivateKey -> String
+publicKeyFromHex  : String -> Maybe PublicKey
+publicKeyToHex    : PublicKey -> String
+```
+
+Parse hex-encoded keys (32 bytes / 64 hex chars).
+
+### Operations
+
+```elm
+getPublicKey : PrivateKey -> PublicKey
+```
+
+Derive the public key from a private key.
+
+```elm
+getSharedSecret : PrivateKey -> PublicKey -> String
+```
+
+ECDH: compute a shared secret from your private key and their public key. Returns the hex-encoded shared point (32 bytes / 64 hex chars). Both parties derive the same secret.
+
+### Example
+
+```elm
+import Crypto.X25519 as X25519
+
+case ( X25519.privateKeyFromHex alicePrivHex, X25519.privateKeyFromHex bobPrivHex ) of
+    ( Just alicePriv, Just bobPriv ) ->
+        let
+            alicePub = X25519.getPublicKey alicePriv
+            bobPub = X25519.getPublicKey bobPriv
+            secret1 = X25519.getSharedSecret alicePriv bobPub
+            secret2 = X25519.getSharedSecret bobPriv alicePub
+        in
+        secret1 == secret2  -- True
+
+    _ ->
         False
 ```
 
@@ -405,6 +467,7 @@ All functions accept and return **lowercase hex strings**. One byte = two hex ch
 | Public key, compressed (33 bytes) | 66 chars |
 | Public key, uncompressed (65 bytes) | 130 chars |
 | Ed25519 public key (32 bytes) | 64 chars |
+| X25519 public key (32 bytes) | 64 chars |
 | Signature, compact (64 bytes) | 128 chars |
 | Cipher key (32 bytes) | 64 chars |
 | Nonce12 (12 bytes) | 24 chars |

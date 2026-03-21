@@ -251,6 +251,7 @@ suggestions =
     , "Bytes.Encode" ==> bytes
     , "Crypto.Secp256k1" ==> crypto
     , "Crypto.Ed25519" ==> crypto
+    , "Crypto.X25519" ==> crypto
     , "Crypto.P256" ==> crypto
     , "Crypto.Cipher" ==> crypto
     ]
